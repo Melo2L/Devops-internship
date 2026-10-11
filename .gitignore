@@ -1,0 +1,141 @@
+# ==========================================
+# Node.js / Frontend
+# ==========================================
+node_modules/
+dist/
+dist-ssr/
+.output/
+.vinxi/
+.tanstack/
+.nitro/
+*.local
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ==========================================
+# Python / Backend
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.venv/
+.venv-*/
+venv/
+env/
+
+# Python packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+*.egg-info/
+.eggs/
+
+# ==========================================
+# Testing / Coverage
+# ==========================================
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# ==========================================
+# Security scanner reports
+# ==========================================
+gitleaks-report.json
+gitleaks-test.json
+semgrep-report.json
+checkov-report.json
+security-report.json
+reports/
+artifacts/
+
+# ==========================================
+# Secrets / Environment variables
+# ==========================================
+.env
+.env.*
+!.env.example
+!.env.template
+.dev.vars
+*.pem
+*.key
+secrets/
+.secrets/
+
+# ==========================================
+# Logs
+# ==========================================
+logs/
+*.log
+
+# ==========================================
+# Docker / Cloudflare
+# ==========================================
+.wrangler/
+
+# ==========================================
+# Editors / Operating systems
+# ==========================================
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ==========================================
+# Ruff
+# ==========================================
+.ruff_cache/
+
+# ==========================================
+# Local backups
+# ==========================================
+.venv-windows-backup/
+
+# Local databases and persistent application data
+*.db
+*.sqlite
+*.sqlite3
+instance/
+data/
+
+# Local backups and recovery copies
+/backups/
+/backup-*/
+/recovery-*/
+
+# Local development artifacts
+.venv-windows-backup/
+
+# Generated build artifacts
+/build
+/vite
+
+# Local test archives and extracted fixtures
+/test-project.zip
+/test-vulnerable-project.zip
+/test-project/
+/test-vulnerable-project/
+
+# Backup and recovery artifacts
+*.bak
+*.backup
+*.orig
+*~
+recovery-*/

@@ -1,0 +1,20 @@
+rules:
+  - id: python.security.eval
+    languages: [python]
+    severity: ERROR
+    message: "Uso de eval() pode permitir execução de código não confiável."
+    pattern: eval(...)
+
+  - id: python.security.subprocess-shell-true
+    languages: [python]
+    severity: WARNING
+    message: "subprocess com shell=True pode permitir command injection."
+    pattern: subprocess.run(..., shell=True, ...)
+
+  - id: python.security.pickle-load
+    languages: [python]
+    severity: WARNING
+    message: "pickle.load(s) pode executar código durante a desserialização."
+    pattern-either:
+      - pattern: pickle.load(...)
+      - pattern: pickle.loads(...)

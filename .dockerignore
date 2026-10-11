@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Build outputs
+dist/
+.output/
+.tanstack/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+coverage/
+
+# Git
+.git/
+.gitignore
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Local temporary files
+tmp/
+temp/
+*.tmp
+
+# Docker
+Dockerfile*
+compose*.yml
+docker-compose*.yml
+
+# Documentation / local artifacts
+*.zip
