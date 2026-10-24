@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Download, Eye, FileJson, FileText } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
 import { PageHeader } from "@/components/security/brand";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { reportsQuery, dashboardQuery } from "@/services/queries";
+import { reportsQuery } from "@/services/queries";
 import { SEVERITY_LABEL, SEVERITY_ORDER, type Report } from "@/types/security";
 import { sevText } from "@/components/security/severity-styles";
 import { cn } from "@/lib/utils";
@@ -29,11 +28,7 @@ export const Route = createFileRoute("/_dashboard/reports")({
       { property: "og:description", content: "View and export Security Assessment Reports." },
     ],
   }),
-  loader: ({ context }) =>
-    Promise.all([
-      context.queryClient.ensureQueryData(reportsQuery),
-      context.queryClient.ensureQueryData(dashboardQuery),
-    ]),
+  loader: ({ context }) => context.queryClient.ensureQueryData(reportsQuery),
   component: ReportsPage,
 });
 
@@ -51,21 +46,13 @@ function fmtDate(d: string) {
 
 function ReportsPage() {
   const { data: reports } = useSuspenseQuery(reportsQuery);
-  const { data: dash } = useSuspenseQuery(dashboardQuery);
   const [open, setOpen] = useState<Report | null>(null);
   const latest = reports[0]!;
 
   function exportJson(r: Report) {
-    const blob = new Blob(
-      [
-        JSON.stringify(
-          { ...r, severityCounts: dash.severityCounts, categories: dash.categories },
-          null,
-          2,
-        ),
-      ],
-      { type: "application/json" },
-    );
+    const blob = new Blob([JSON.stringify(r, null, 2)], {
+      type: "application/json",
+    });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `${r.id}.json`;
@@ -78,7 +65,6 @@ function ReportsPage() {
       <PageHeader
         title="Reports"
         subtitle="Assessment reports are generated at the end of every scan."
-
       />
 
       <section className="panel grid gap-6 p-6 md:grid-cols-[1fr_auto] md:items-center">
@@ -113,11 +99,8 @@ function ReportsPage() {
           <Button onClick={() => setOpen(latest)}>
             <Eye /> View Report
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => toast.info("PDF generation will be provided by the backend.")}
-          >
-            <Download /> Download PDF
+          <Button variant="outline" onClick={() => window.print()}>
+            <Download /> Print / Save PDF
           </Button>
           <Button variant="outline" onClick={() => exportJson(latest)}>
             <FileJson /> Export JSON
@@ -162,10 +145,10 @@ function ReportsPage() {
               <DialogHeader>
                 <DialogTitle>{open.title}</DialogTitle>
                 <DialogDescription>
-                  {open.projectName} · Scan {open.scanId.slice(0, 8)} ·{" "}
-                  {fmtDate(open.generated)}
+                  {open.projectName} · Scan {open.scanId.slice(0, 8)} · {fmtDate(open.generated)}
                 </DialogDescription>
               </DialogHeader>
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="rounded-lg border p-4">
                   <p className="eyebrow">Security Score</p>
@@ -179,17 +162,17 @@ function ReportsPage() {
                   <p className="mt-2 text-3xl font-semibold">{open.findingCount}</p>
                 </div>
               </div>
-              {open.id === latest.id && (
-                <div className="space-y-2">
-                  <p className="eyebrow">Severity breakdown</p>
-                  {SEVERITY_ORDER.map((s) => (
-                    <div key={s} className="flex justify-between text-sm">
-                      <span>{SEVERITY_LABEL[s]}</span>
-                      <span className={cn("font-mono", sevText[s])}>{dash.severityCounts[s]}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+
+              <div className="space-y-2">
+                <p className="eyebrow">Severity breakdown</p>
+                {SEVERITY_ORDER.map((s) => (
+                  <div key={s} className="flex justify-between text-sm">
+                    <span>{SEVERITY_LABEL[s]}</span>
+                    <span className={cn("font-mono", sevText[s])}>{open.severityCounts[s]}</span>
+                  </div>
+                ))}
+              </div>
+
               <p className="text-xs text-muted-foreground">
                 This report reflects automated analysis results and is not a guarantee of security.
               </p>

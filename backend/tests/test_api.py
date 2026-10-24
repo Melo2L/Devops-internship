@@ -169,3 +169,17 @@ def test_upload_rejects_archive_over_size_limit():
     assert response.json()["detail"] == (
         "Archive exceeds the maximum allowed size of 100 MB."
     )
+
+
+def test_metrics_endpoint_exposes_http_request_metrics():
+    health_response = client.get("/health")
+    metrics_response = client.get("/metrics")
+
+    assert health_response.status_code == 200
+    assert metrics_response.status_code == 200
+    assert "text/plain" in metrics_response.headers["content-type"]
+
+    content = metrics_response.text
+    assert "securescan_http_requests_total" in content
+    assert "securescan_http_request_duration_seconds" in content
+    assert 'endpoint="/health"' in content

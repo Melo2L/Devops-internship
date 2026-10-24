@@ -14,11 +14,6 @@ import {
 } from "lucide-react";
 import { Brand } from "@/components/security/brand";
 import { Button } from "@/components/ui/button";
-import { ScoreRing } from "@/components/security/score-ring";
-import { SeverityBadge } from "@/components/security/severity";
-import { sevBg } from "@/components/security/severity-styles";
-import { mockCategories, mockFindings } from "@/data/mock";
-import { SEVERITY_ORDER, SEVERITY_LABEL } from "@/types/security";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -77,11 +72,6 @@ const STEPS = [
 ];
 
 function Landing() {
-  const counts = SEVERITY_ORDER.map((s) => ({
-    s,
-    n: mockFindings.filter((f) => f.severity === s).length,
-  }));
-
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-20 border-b bg-background/80 backdrop-blur">
@@ -89,10 +79,6 @@ function Landing() {
           <Brand />
 
           <nav className="flex items-center gap-2">
-            <Button asChild variant="ghost" size="sm">
-              <Link to="/overview">Demo</Link>
-            </Button>
-
             <Button asChild size="sm">
               <Link to="/scan/new">Analyze a Project</Link>
             </Button>
@@ -129,85 +115,28 @@ function Landing() {
                 Analyze a Project <ArrowRight />
               </Link>
             </Button>
-
-            <Button asChild size="lg" variant="outline">
-              <Link to="/overview">Explore Demo</Link>
-            </Button>
           </div>
 
-          {/* Dashboard preview */}
-          <div className="panel mx-auto mt-16 max-w-5xl p-2 text-left">
-            <div className="flex items-center gap-1.5 border-b px-3 pb-2 pt-1">
-              <span className="size-2.5 rounded-full bg-muted" />
-              <span className="size-2.5 rounded-full bg-muted" />
-              <span className="size-2.5 rounded-full bg-muted" />
-
-              <span className="ml-3 font-mono text-xs text-muted-foreground">
-                DevOps Project TSSCiberseguridad / example-project / overview
-              </span>
-            </div>
-
-            <div className="grid gap-4 p-4 md:grid-cols-[220px_1fr_1fr]">
-              <div className="flex flex-col items-center justify-center rounded-lg border bg-background p-5">
-                <p className="eyebrow mb-3">Security Score</p>
-
-                <ScoreRing score={74} size={136} />
-
-                <p className="mt-3 font-mono text-xs text-sev-medium">RISK: MODERATE</p>
+          <div className="panel mx-auto mt-16 max-w-5xl p-8 text-left md:p-12">
+            <div className="flex items-start gap-4">
+              <div className="grid size-12 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                <ShieldCheck className="size-6" />
               </div>
-
-              <div className="space-y-3 rounded-lg border bg-background p-5">
-                <p className="eyebrow">Categories</p>
-
-                {mockCategories.map((c) => (
-                  <div key={c.id}>
-                    <div className="flex justify-between text-xs">
-                      <span>{c.name}</span>
-                      <span className="font-mono text-muted-foreground">{c.score}</span>
-                    </div>
-
-                    <div className="mt-1 h-1.5 rounded-full bg-muted">
-                      <div
-                        className="h-full rounded-full bg-primary"
-                        style={{ width: `${c.score}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="space-y-3 rounded-lg border bg-background p-5">
-                <p className="eyebrow">Severity</p>
-
-                <div className="flex h-2 overflow-hidden rounded-full">
-                  {counts.map(({ s, n }) => (
-                    <div key={s} className={sevBg[s]} style={{ width: `${(n / 34) * 100}%` }} />
-                  ))}
-                </div>
-
-                <ul className="space-y-1.5 text-xs">
-                  {counts.map(({ s, n }) => (
-                    <li key={s} className="flex justify-between">
-                      <span className="text-muted-foreground">{SEVERITY_LABEL[s]}</span>
-
-                      <span className="font-mono">{n}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <div className="space-y-2 border-t pt-3">
-                  {mockFindings.slice(0, 2).map((f) => (
-                    <div key={f.id} className="flex items-center gap-2 text-xs">
-                      <SeverityBadge severity={f.severity} />
-                      <span className="truncate">{f.title}</span>
-                    </div>
-                  ))}
-                </div>
+              <div>
+                <h2 className="text-lg font-semibold">Your project. Your results.</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                  Upload a ZIP archive to run the configured backend analysis. Findings, scanner
+                  results and detected technologies are shown from the actual API response, not from
+                  pre-filled sample data.
+                </p>
+                <Button asChild className="mt-5">
+                  <Link to="/scan/new">
+                    Upload a project <ArrowRight />
+                  </Link>
+                </Button>
               </div>
             </div>
           </div>
-
-          <p className="mt-3 text-xs text-muted-foreground">Preview uses simulated demo data.</p>
         </div>
       </section>
 
@@ -246,16 +175,13 @@ function Landing() {
         </div>
 
         <div className="panel mt-10 flex flex-col items-start gap-4 p-6 md:flex-row md:items-center">
-          <ShieldCheck className="size-6 text-primary" />
-
+          <ShieldCheck className="size-6 shrink-0 text-primary" />
           <p className="flex-1 text-sm text-muted-foreground">
-            Planned analysis engines:{" "}
-            <span className="text-foreground">Semgrep, Gitleaks, Trivy, Checkov</span> and SBOM
-            generation. The current frontend runs a simulated demo — no real scans are executed yet.
+            SecureScan reports the results returned by its configured backend scanners. Scanner
+            availability depends on the backend configuration and the uploaded project.
           </p>
-
           <Button asChild variant="outline">
-            <Link to="/overview">Explore Demo</Link>
+            <Link to="/scan/new">Analyze a project</Link>
           </Button>
         </div>
       </section>

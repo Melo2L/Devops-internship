@@ -1,0 +1,40 @@
+groups:
+  - name: securescan-alerts
+    rules:
+      - alert: SecureScanBackendDown
+        expr: up{job="securescan-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "SecureScan backend is unavailable"
+          description: "Prometheus has been unable to scrape the SecureScan backend for at least one minute."
+
+      - alert: SecureScanHighServerErrorRate
+        expr: |
+          (
+            sum(rate(securescan_http_requests_total{status=~"5.."}[5m]))
+            /
+            clamp_min(sum(rate(securescan_http_requests_total[5m])), 0.001)
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "SecureScan HTTP 5xx error rate is high"
+          description: "More than 5% of HTTP requests have returned server errors for at least five minutes."
+
+      - alert: SecureScanHighP95Latency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (
+              rate(securescan_http_request_duration_seconds_bucket[5m])
+            )
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "SecureScan request latency is high"
+          description: "The 95th percentile of HTTP request duration has exceeded one second for at least five minutes."

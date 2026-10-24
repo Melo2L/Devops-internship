@@ -17,7 +17,7 @@ def normalize_gitleaks_finding(
         scanner="gitleaks",
         category=FindingCategory.SECRET,
         severity=FindingSeverity.HIGH,
-        confidence=0.95,
+        confidence=None,
         title=finding.description,
         description=(
             f"Gitleaks detected a potential secret using rule '{finding.rule_id}'."

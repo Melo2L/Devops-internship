@@ -25,7 +25,7 @@ def test_normalize_semgrep_finding() -> None:
     assert finding.scanner == "semgrep"
     assert finding.category == FindingCategory.SOURCE_CODE
     assert finding.severity == FindingSeverity.MEDIUM
-    assert finding.confidence == 0.90
+    assert finding.confidence is None
     assert finding.title == "Detected use of eval()."
     assert finding.file == "app.py"
     assert finding.line == 10

@@ -30,7 +30,7 @@ class Finding:
     scanner: str
     category: FindingCategory
     severity: FindingSeverity
-    confidence: float
+    confidence: float | None
     title: str
     description: str
     file: str

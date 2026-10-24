@@ -112,7 +112,7 @@ def normalize_semgrep_finding(
         scanner="semgrep",
         category=FindingCategory.SOURCE_CODE,
         severity=severity,
-        confidence=0.90,
+        confidence=None,
         title=finding.message,
         description=(
             "Semgrep detected a potential source-code security issue "

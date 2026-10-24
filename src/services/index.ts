@@ -8,7 +8,10 @@ import type {
   Severity,
 } from "@/types/security";
 
-export const API_BASE = "/api";
+export const API_BASE =
+  typeof window === "undefined"
+    ? (process.env["SECURESCAN_API_INTERNAL_URL"] ?? "http://127.0.0.1:8000/api")
+    : "/api";
 
 interface ApiFinding {
   id?: string;
@@ -16,7 +19,6 @@ interface ApiFinding {
   scanner: string;
   category: string;
   severity: string;
-  confidence: number;
   title: string;
   description: string;
   file: string;
@@ -38,7 +40,7 @@ interface ApiScanSummary {
   findings_count: number;
 }
 
-interface ApiScan extends ApiScanSummary {
+export interface ApiScan extends ApiScanSummary {
   analysis?: {
     total_files?: number;
     languages?: Record<string, number>;
@@ -56,10 +58,7 @@ interface ApiScan extends ApiScanSummary {
   message?: string;
 }
 
-async function apiFetch<T>(
-  path: string,
-  options?: RequestInit,
-): Promise<T> {
+async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
@@ -111,10 +110,7 @@ function normalizeScanner(value: string): Finding["scanner"] {
   }
 }
 
-function normalizeCategory(
-  value: string,
-  scanner: string,
-): Finding["category"] {
+function normalizeCategory(value: string, scanner: string): Finding["category"] {
   const category = value.toLowerCase();
 
   if (category.includes("secret") || scanner === "Gitleaks") {
@@ -158,6 +154,7 @@ function toFinding(raw: ApiFinding): Finding {
     id:
       raw.id ??
       `${raw.scan_id ?? "scan"}:${raw.fingerprint ?? `${raw.file}:${raw.line ?? 0}:${raw.rule_id ?? raw.title}`}`,
+    ...(raw.scan_id ? { scan_id: raw.scan_id } : {}),
     severity: normalizeSeverity(raw.severity),
     title: raw.title,
     description: raw.description,
@@ -166,12 +163,6 @@ function toFinding(raw: ApiFinding): Finding {
     scanner,
     file: raw.file,
     line: raw.line,
-    confidence:
-      raw.confidence >= 0.8
-        ? "high"
-        : raw.confidence >= 0.5
-          ? "medium"
-          : "low",
     status: normalizeStatus(raw.status),
     remediation: raw.remediation ? [raw.remediation] : [],
     ruleId: raw.rule_id ?? "",
@@ -193,13 +184,12 @@ function findingsFromScan(scan: ApiScan): Finding[] {
   );
 }
 
-const severityOrder: Severity[] = [
-  "critical",
-  "high",
-  "medium",
-  "low",
-  "info",
-];
+async function originalFindingsForScan(scanId: string): Promise<Finding[]> {
+  const snapshot = await apiFetch<ApiScan>(`/scans/${encodeURIComponent(scanId)}`);
+  return findingsFromScan(snapshot);
+}
+
+const severityOrder: Severity[] = ["critical", "high", "medium", "low", "info"];
 
 const penalties: Record<Severity, number> = {
   critical: 25,
@@ -237,11 +227,13 @@ function toScan(summary: ApiScanSummary, number: number): Scan {
 
 export const scanService = {
   history: async (): Promise<Scan[]> => {
-    const summaries = await apiFetch<ApiScanSummary[]>("/scans");
+    const summaries = (await apiFetch<ApiScanSummary[]>("/scans")).sort(
+      (a, b) => Date.parse(b.created_at) - Date.parse(a.created_at),
+    );
 
     return Promise.all(
       summaries.map(async (summary, index) => {
-        const findings = await findingService.list(summary.id);
+        const findings = await originalFindingsForScan(summary.id);
 
         return {
           ...toScan(summary, summaries.length - index),
@@ -252,12 +244,21 @@ export const scanService = {
     );
   },
 
+  getResult: async (scanId: string): Promise<ApiScan | undefined> => {
+    try {
+      return await apiFetch<ApiScan>(`/scans/${encodeURIComponent(scanId)}`);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("404")) {
+        return undefined;
+      }
+      throw error;
+    }
+  },
+
   get: async (scanId: string): Promise<Scan | undefined> => {
     try {
-      const scan = await apiFetch<ApiScan>(
-        `/scans/${encodeURIComponent(scanId)}`,
-      );
-      const findings = await findingService.list(scanId);
+      const scan = await apiFetch<ApiScan>(`/scans/${encodeURIComponent(scanId)}`);
+      const findings = await originalFindingsForScan(scanId);
 
       return {
         ...toScan(scan, 1),
@@ -272,19 +273,16 @@ export const scanService = {
     }
   },
 
-  start: async (
-    _projectId: string,
-    _checks: string[],
-  ): Promise<{ scanId: string }> => {
-    throw new Error(
-      "A nova análise é executada durante o upload do projeto ZIP.",
-    );
+  start: async (_projectId: string, _checks: string[]): Promise<{ scanId: string }> => {
+    throw new Error("A nova análise é executada durante o upload do projeto ZIP.");
   },
 };
 
 export const projectService = {
   list: async (): Promise<Project[]> => {
-    const scans = await apiFetch<ApiScanSummary[]>("/scans");
+    const scans = (await apiFetch<ApiScanSummary[]>("/scans")).sort(
+      (a, b) => Date.parse(b.created_at) - Date.parse(a.created_at),
+    );
     const latestByFilename = new Map<string, ApiScanSummary>();
 
     for (const scan of scans) {
@@ -316,9 +314,7 @@ export const projectService = {
 
 export const findingService = {
   list: async (scanId?: string): Promise<Finding[]> => {
-    const query = scanId
-      ? `?scan_id=${encodeURIComponent(scanId)}`
-      : "";
+    const query = scanId ? `?scan_id=${encodeURIComponent(scanId)}` : "";
     const findings = await apiFetch<ApiFinding[]>(`/findings${query}`);
     return findings.map(toFinding);
   },
@@ -328,20 +324,14 @@ export const findingService = {
     return findings.find((finding) => finding.id === id) ?? null;
   },
 
-  updateStatus: async (
-    id: string,
-    status: Finding["status"],
-  ): Promise<Finding> => {
-    const updated = await apiFetch<ApiFinding>(
-      `/findings/${encodeURIComponent(id)}/status`,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status }),
+  updateStatus: async (id: string, status: Finding["status"]): Promise<Finding> => {
+    const updated = await apiFetch<ApiFinding>(`/findings/${encodeURIComponent(id)}/status`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify({ status }),
+    });
 
     return toFinding(updated);
   },
@@ -349,11 +339,25 @@ export const findingService = {
 
 export const reportService = {
   list: async (): Promise<Report[]> => {
-    const scans = await apiFetch<ApiScanSummary[]>("/scans");
+    const scans = (await apiFetch<ApiScanSummary[]>("/scans")).sort(
+      (a, b) => Date.parse(b.created_at) - Date.parse(a.created_at),
+    );
 
     return Promise.all(
       scans.map(async (scan) => {
-        const findings = await findingService.list(scan.id);
+        const findings = await originalFindingsForScan(scan.id);
+
+        const severityCounts: Record<Severity, number> = {
+          critical: 0,
+          high: 0,
+          medium: 0,
+          low: 0,
+          info: 0,
+        };
+
+        for (const finding of findings) {
+          severityCounts[finding.severity] += 1;
+        }
 
         return {
           id: scan.id,
@@ -363,6 +367,7 @@ export const reportService = {
           generated: scan.created_at,
           score: scoreFindings(findings),
           findingCount: findings.length,
+          severityCounts,
         };
       }),
     );
@@ -376,7 +381,9 @@ export const reportService = {
 
 export const dashboardService = {
   get: async (): Promise<Dashboard> => {
-    const summaries = await apiFetch<ApiScanSummary[]>("/scans");
+    const summaries = (await apiFetch<ApiScanSummary[]>("/scans")).sort(
+      (a, b) => Date.parse(b.created_at) - Date.parse(a.created_at),
+    );
 
     if (summaries.length === 0) {
       const emptyCounts: Record<Severity, number> = {
@@ -418,21 +425,44 @@ export const dashboardService = {
       };
     }
 
-    const latestSummary = summaries[0];
+    // Prefer the scan from the most recent upload when the browser has
+    // a saved ID; otherwise fall back to the newest scan returned by the API.
+    let preferredScanId: string | null = null;
+    try {
+      if (typeof window !== "undefined") {
+        preferredScanId = window.localStorage.getItem("securescan:last-scan-id");
+      }
+    } catch {
+      // Browser storage may be unavailable; use the API's newest scan.
+    }
 
-if (!latestSummary) {
-  throw new Error("No scan summary available.");
-}
+    const latestSummary =
+      summaries.find((summary) => summary.id === preferredScanId) ?? summaries[0];
 
-const latest = await apiFetch<ApiScan>(
-  `/scans/${encodeURIComponent(latestSummary.id)}`,
-);
+    if (!latestSummary) {
+      throw new Error("No scan summary available.");
+    }
+
+    const latest = await apiFetch<ApiScan>(`/scans/${encodeURIComponent(latestSummary.id)}`);
     // Read persisted finding statuses rather than the original scan snapshot.
     const allFindings = await findingService.list(latest.id);
-    const findings = allFindings.filter(
-      (finding) => finding.status === "open",
-    );
+    const findings = allFindings.filter((finding) => finding.status === "open");
     const score = scoreFindings(findings);
+
+    // Compare only with the closest older scan of the same project.
+    const previousSummary = summaries.find(
+      (summary) =>
+        summary.filename === latest.filename &&
+        summary.id !== latest.id &&
+        Date.parse(summary.created_at) < Date.parse(latest.created_at),
+    );
+
+    let previousScore: number | null = null;
+
+    if (previousSummary) {
+      const previousFindings = await originalFindingsForScan(previousSummary.id);
+      previousScore = scoreFindings(previousFindings);
+    }
 
     const severityCounts = findings.reduce(
       (counts, finding) => {
@@ -458,9 +488,7 @@ const latest = await apiFetch<ApiScan>(
     ];
 
     const categories = categoryDefinitions.map((category) => {
-      const categoryFindings = findings.filter(
-        (finding) => finding.category === category.id,
-      );
+      const categoryFindings = findings.filter((finding) => finding.category === category.id);
 
       return {
         ...category,
@@ -469,8 +497,7 @@ const latest = await apiFetch<ApiScan>(
     });
 
     const languageEntries = Object.entries(latest.analysis?.languages ?? {});
-    const language =
-      languageEntries.sort((a, b) => b[1] - a[1])[0]?.[0] ?? "Unknown";
+    const language = languageEntries.sort((a, b) => b[1] - a[1])[0]?.[0] ?? "Unknown";
 
     return {
       project: {
@@ -489,13 +516,14 @@ const latest = await apiFetch<ApiScan>(
         score,
         max: 100,
         riskLevel: riskFor(score),
-        previous: null,
+        previous: previousScore,
       },
       severityCounts,
       categories,
       history: await Promise.all(
         summaries.slice(0, 10).map(async (summary, index) => {
-          const historyFindings = await findingService.list(summary.id);
+          const historyFindings = await originalFindingsForScan(summary.id);
+
           return {
             ...toScan(summary, summaries.length - index),
             score: scoreFindings(historyFindings),
@@ -504,11 +532,7 @@ const latest = await apiFetch<ApiScan>(
         }),
       ),
       topFindings: [...findings]
-        .sort(
-          (a, b) =>
-            severityOrder.indexOf(a.severity) -
-            severityOrder.indexOf(b.severity),
-        )
+        .sort((a, b) => severityOrder.indexOf(a.severity) - severityOrder.indexOf(b.severity))
         .slice(0, 6),
     };
   },

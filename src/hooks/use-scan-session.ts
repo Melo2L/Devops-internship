@@ -1,17 +1,17 @@
 // Tiny client-side store for the upload, analysis results and finding triage.
 import { useSyncExternalStore } from "react";
-import type { ProjectUploadResponse } from "@/services";
+import type { ApiScan } from "@/services";
 import type { CheckId, FindingStatus } from "@/types/security";
 
-export interface DemoState {
+export interface ScanSessionState {
   upload: { name: string; size: number } | null;
-  uploadResult: ProjectUploadResponse | null;
+  uploadResult: ApiScan | null;
   checks: Record<CheckId, boolean>;
   statuses: Record<string, FindingStatus>;
   scanComplete: boolean;
 }
 
-const initial: DemoState = {
+const initial: ScanSessionState = {
   upload: null,
   uploadResult: null,
   checks: {
@@ -28,12 +28,28 @@ const initial: DemoState = {
 let state = initial;
 const listeners = new Set<() => void>();
 
-export const demoStore = {
+export const scanSessionStore = {
   get: () => state,
 
-  set: (patch: Partial<DemoState> | ((s: DemoState) => Partial<DemoState>)) => {
+  set: (
+    patch: Partial<ScanSessionState> | ((s: ScanSessionState) => Partial<ScanSessionState>),
+  ) => {
     const next = typeof patch === "function" ? patch(state) : patch;
     state = { ...state, ...next };
+
+    // Store only the backend ID; restore the actual result through the API.
+    if (typeof window !== "undefined" && "uploadResult" in next) {
+      try {
+        if (next.uploadResult?.id) {
+          window.localStorage.setItem("securescan:last-scan-id", next.uploadResult.id);
+        } else if (next.uploadResult === null) {
+          window.localStorage.removeItem("securescan:last-scan-id");
+        }
+      } catch {
+        // The in-memory session still works if browser storage is unavailable.
+      }
+    }
+
     listeners.forEach((listener) => listener());
   },
 
@@ -43,9 +59,9 @@ export const demoStore = {
   },
 };
 
-export function useDemoStore<T>(selector: (s: DemoState) => T): T {
+export function useScanSession<T>(selector: (s: ScanSessionState) => T): T {
   return useSyncExternalStore(
-    demoStore.subscribe,
+    scanSessionStore.subscribe,
     () => selector(state),
     () => selector(initial),
   );

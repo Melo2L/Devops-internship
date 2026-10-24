@@ -41,7 +41,7 @@ def initialize_database() -> None:
                 scanner TEXT NOT NULL,
                 category TEXT NOT NULL,
                 severity TEXT NOT NULL,
-                confidence REAL NOT NULL,
+                confidence REAL,
                 title TEXT NOT NULL,
                 description TEXT NOT NULL,
                 file TEXT NOT NULL,
@@ -62,6 +62,67 @@ def initialize_database() -> None:
                 ON findings(severity);
             """
         )
+
+        # SQLite cannot remove NOT NULL with ALTER COLUMN. Rebuild only the
+        # findings table when an older schema still requires confidence.
+        columns = {
+            row["name"]: row
+            for row in db.execute("PRAGMA table_info(findings)").fetchall()
+        }
+        if columns.get("confidence") and columns["confidence"]["notnull"]:
+            db.execute("PRAGMA foreign_keys = OFF")
+            db.execute("BEGIN")
+            try:
+                db.execute(
+                    """
+                    CREATE TABLE findings_new (
+                        id TEXT PRIMARY KEY,
+                        scan_id TEXT NOT NULL REFERENCES scans(id)
+                            ON DELETE CASCADE,
+                        scanner TEXT NOT NULL,
+                        category TEXT NOT NULL,
+                        severity TEXT NOT NULL,
+                        confidence REAL,
+                        title TEXT NOT NULL,
+                        description TEXT NOT NULL,
+                        file TEXT NOT NULL,
+                        line INTEGER,
+                        status TEXT NOT NULL,
+                        remediation TEXT,
+                        rule_id TEXT,
+                        fingerprint TEXT
+                    )
+                    """
+                )
+                db.execute(
+                    """
+                    INSERT INTO findings_new (
+                        id, scan_id, scanner, category, severity, confidence,
+                        title, description, file, line, status, remediation,
+                        rule_id, fingerprint
+                    )
+                    SELECT id, scan_id, scanner, category, severity, confidence,
+                           title, description, file, line, status, remediation,
+                           rule_id, fingerprint
+                    FROM findings
+                    """
+                )
+                db.execute("DROP TABLE findings")
+                db.execute("ALTER TABLE findings_new RENAME TO findings")
+                db.execute(
+                    "CREATE INDEX IF NOT EXISTS "
+                    "idx_findings_scan_id ON findings(scan_id)"
+                )
+                db.execute(
+                    "CREATE INDEX IF NOT EXISTS "
+                    "idx_findings_severity ON findings(severity)"
+                )
+                db.commit()
+            except Exception:
+                db.rollback()
+                raise
+            finally:
+                db.execute("PRAGMA foreign_keys = ON")
 
 
 def save_scan(result: dict[str, Any]) -> dict[str, Any]:
@@ -111,7 +172,7 @@ def save_scan(result: dict[str, Any]) -> dict[str, Any]:
                         scan.get("scanner", finding.get("scanner", "unknown")),
                         _enum_value(finding.get("category", "Configuration")),
                         _enum_value(finding.get("severity", "Informational")),
-                        float(finding.get("confidence") or 0),
+                        finding.get("confidence"),
                         finding.get("title", "Untitled finding"),
                         finding.get("description", ""),
                         finding.get("file", ""),

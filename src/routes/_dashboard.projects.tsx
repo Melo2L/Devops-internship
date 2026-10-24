@@ -69,9 +69,12 @@ function ProjectsPage() {
           </div>
           <div>
             <h2 className="font-semibold">{p?.name ?? "No projects yet"}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">{p?.description ?? "Upload a ZIP archive to start your first analysis."}</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {p?.description ?? "Upload a ZIP archive to start your first analysis."}
+            </p>
             <p className="mt-1 font-mono text-xs text-muted-foreground">
-              {p ? `${p.language} · ${p.sizeMb} MB` : "No project uploaded"} · {history.length} scans
+              {p ? `${p.language} · ${p.sizeMb} MB` : "No project uploaded"} · {history.length}{" "}
+              scans
             </p>
           </div>
         </div>

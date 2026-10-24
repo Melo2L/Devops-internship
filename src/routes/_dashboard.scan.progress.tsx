@@ -1,8 +1,10 @@
+import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AlertTriangle, CheckCircle2, FileSearch } from "lucide-react";
 import { PageHeader } from "@/components/security/brand";
 import { Button } from "@/components/ui/button";
-import { useDemoStore } from "@/hooks/use-demo-store";
+import { scanSessionStore, useScanSession } from "@/hooks/use-scan-session";
+import { scanService } from "@/services";
 
 export const Route = createFileRoute("/_dashboard/scan/progress")({
   head: () => ({
@@ -18,8 +20,74 @@ export const Route = createFileRoute("/_dashboard/scan/progress")({
 });
 
 function ProgressPage() {
-  const upload = useDemoStore((state) => state.upload);
-  const result = useDemoStore((state) => state.uploadResult);
+  const upload = useScanSession((state) => state.upload);
+  const result = useScanSession((state) => state.uploadResult);
+  const [restoring, setRestoring] = useState(true);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function restore() {
+      if (result) {
+        setRestoring(false);
+        return;
+      }
+
+      let scanId: string | null = null;
+      try {
+        scanId = window.localStorage.getItem("securescan:last-scan-id");
+      } catch {
+        // Storage can be unavailable in restricted browser contexts.
+      }
+
+      if (!scanId) {
+        setRestoring(false);
+        return;
+      }
+
+      try {
+        const saved = await scanService.getResult(scanId);
+        if (cancelled) return;
+
+        if (saved) {
+          scanSessionStore.set({
+            uploadResult: saved,
+            upload: { name: saved.filename, size: saved.size_bytes },
+            scanComplete: true,
+          });
+        } else {
+          setRestoreError("The saved scan was not found by the backend.");
+        }
+      } catch {
+        if (!cancelled) {
+          setRestoreError("Could not restore results. Check that the backend is running.");
+        }
+      } finally {
+        if (!cancelled) setRestoring(false);
+      }
+    }
+
+    void restore();
+    return () => {
+      cancelled = true;
+    };
+  }, [result]);
+
+  if (restoring) {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <PageHeader
+          eyebrow="Security analysis"
+          title="Restoring analysis results"
+          subtitle="Retrieving the saved scan from the backend."
+        />
+        <div className="panel p-6 text-sm text-muted-foreground">
+          Please wait while SecureScan retrieves the analysis.
+        </div>
+      </div>
+    );
+  }
 
   if (!result) {
     return (
@@ -31,8 +99,8 @@ function ProgressPage() {
         />
         <div className="panel p-6">
           <p className="text-sm text-muted-foreground">
-            There is no real analysis result in the current session. No progress or findings are
-            being simulated.
+            {restoreError ?? "No saved analysis was found. Upload a project to run an analysis."} No
+            progress or findings are simulated.
           </p>
           <Button asChild className="mt-4">
             <Link to="/scan/new">Upload a project</Link>
@@ -42,9 +110,9 @@ function ProgressPage() {
     );
   }
 
-  const findings = result.scans.flatMap((scan) => scan.findings);
-  const scannersRun = result.scans.map((scan) => scan.scanner);
-  const scannersSkipped = result.scan_plan.skipped;
+  const findings = (result.scans ?? []).flatMap((scan) => scan.findings);
+  const scannersRun = (result.scans ?? []).map((scan) => scan.scanner);
+  const scannersSkipped = result.scan_plan?.skipped ?? [];
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -107,8 +175,8 @@ function ProgressPage() {
         <p className="mt-3 text-sm text-muted-foreground">{result.message}</p>
         <p className="mt-2 text-sm">
           Technologies detected:{" "}
-          {result.analysis.technologies.length
-            ? result.analysis.technologies.join(", ")
+          {(result.analysis?.technologies ?? []).length
+            ? (result.analysis?.technologies ?? []).join(", ")
             : "None reported"}
         </p>
         <Button asChild className="mt-5">

@@ -1,9 +1,7 @@
 // Domain types shared by the UI and the service layer.
-// Shapes mirror the planned FastAPI responses so mock services can be swapped for REST calls.
 
 export type Severity = "critical" | "high" | "medium" | "low" | "info";
 export type FindingStatus = "open" | "resolved" | "ignored";
-export type Confidence = "high" | "medium" | "low";
 export type Scanner = "Semgrep" | "Gitleaks" | "Trivy" | "Checkov";
 export type FindingCategory = "SAST" | "Secrets" | "SCA" | "Container" | "IaC" | "Configuration";
 export type CheckId = "sast" | "dependencies" | "secrets" | "containers" | "iac";
@@ -11,6 +9,7 @@ export type RiskLevel = "NOT_SCANNED" | "LOW" | "MODERATE" | "HIGH" | "CRITICAL"
 
 export interface Finding {
   id: string;
+  scan_id?: string;
   severity: Severity;
   title: string;
   description: string;
@@ -19,7 +18,6 @@ export interface Finding {
   scanner: Scanner;
   file: string;
   line: number | null;
-  confidence: Confidence;
   status: FindingStatus;
   remediation: string[];
   snippet?: { startLine: number; lines: string[]; highlight: number; language: string } | undefined;
@@ -66,6 +64,7 @@ export interface Report {
   generated: string;
   score: number;
   findingCount: number;
+  severityCounts: Record<Severity, number>;
 }
 
 export interface ScanStage {

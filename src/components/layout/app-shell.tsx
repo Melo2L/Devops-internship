@@ -1,4 +1,6 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useMatchRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { findingService, scanService } from "@/services";
 import {
   FileText,
   FolderGit2,
@@ -15,7 +17,7 @@ import { Brand } from "@/components/security/brand";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useTheme } from "@/hooks/use-theme";
-import { useDemoStore } from "@/hooks/use-demo-store";
+import { useScanSession } from "@/hooks/use-scan-session";
 
 const NAV = [
   { to: "/overview", label: "Overview", icon: LayoutDashboard },
@@ -34,6 +36,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
           <Brand />
         </Link>
       </div>
+
       <nav className="flex-1 space-y-0.5 px-3 py-4" aria-label="Main">
         {NAV.map(({ to, label, icon: Icon }) => (
           <Link
@@ -51,6 +54,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
           </Link>
         ))}
       </nav>
+
       <div className="border-t border-sidebar-border px-5 py-4">
         <p className="eyebrow">Internship</p>
         <p className="mt-1 text-xs text-sidebar-foreground">Alisson Melo Internship Project</p>
@@ -62,14 +66,60 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const { theme, toggle } = useTheme();
-  const upload = useDemoStore((s) => s.upload);
-  const complete = useDemoStore((s) => s.scanComplete);
+
+  const upload = useScanSession((s) => s.upload);
+  const complete = useScanSession((s) => s.scanComplete);
+
+  const matchRoute = useMatchRoute();
+
+  const findingMatch = matchRoute({
+    to: "/findings/$findingId",
+    fuzzy: false,
+  });
+
+  const findingId =
+    findingMatch && typeof findingMatch.findingId === "string" ? findingMatch.findingId : undefined;
+
+  const isFindingDetail = Boolean(findingId);
+
+  const { data: activeFinding, isPending: isFindingPending } = useQuery({
+    queryKey: ["finding", findingId],
+    queryFn: () => findingService.get(findingId!),
+    enabled: isFindingDetail,
+  });
+
+  const scanId = activeFinding?.scan_id;
+
+  const { data: activeScan, isPending: isScanPending } = useQuery({
+    queryKey: ["scan-header", scanId],
+    queryFn: () => scanService.getResult(scanId!),
+    enabled: Boolean(isFindingDetail && scanId),
+  });
+
+  const projectName = isFindingDetail
+    ? activeScan?.filename?.replace(/\.zip$/i, "")
+    : upload?.name.replace(/\.zip$/i, "");
+
+  const scanLabel = isFindingDetail
+    ? activeScan
+      ? `Scan ${activeScan.id.slice(0, 8)}`
+      : isFindingPending || isScanPending
+        ? "Loading scan..."
+        : scanId
+          ? "Scan unavailable"
+          : "No scan associated"
+    : complete
+      ? "Latest scan completed"
+      : upload
+        ? "Ready to scan"
+        : "No scan selected";
 
   return (
     <div className="min-h-screen bg-background">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 border-r border-sidebar-border bg-sidebar lg:block">
         <SidebarNav />
       </aside>
+
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="left" className="w-64 bg-sidebar p-0">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
@@ -88,26 +138,36 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             <Menu className="size-5" />
           </Button>
+
           <div className="flex min-w-0 items-center gap-3">
             <span className="eyebrow hidden sm:inline">Project</span>
+
             <span className="truncate font-mono text-sm">
-              {upload?.name.replace(/\.zip$/i, "") ?? "No project selected"}
+              {isFindingDetail && !projectName
+                ? isFindingPending || isScanPending
+                  ? "Loading project..."
+                  : "Project unavailable"
+                : (projectName ?? "No project selected")}
             </span>
+
             <span className="hidden items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs text-muted-foreground md:inline-flex">
               <span
                 className={
-                  complete
+                  (isFindingDetail ? Boolean(activeScan) : complete)
                     ? "size-1.5 rounded-full bg-success"
                     : "size-1.5 rounded-full bg-primary animate-pulse-dot"
                 }
               />
-              {complete ? "Latest scan completed" : upload ? "Ready to scan" : "No scan selected"}
+
+              {scanLabel}
             </span>
           </div>
+
           <div className="ml-auto flex items-center gap-2">
             <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme">
               {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
             </Button>
+
             <div className="flex items-center gap-2 rounded-full border py-1 pl-1 pr-3">
               <span className="grid size-6 place-items-center rounded-full bg-primary/15 font-mono text-[10px] text-primary">
                 SS
@@ -116,6 +176,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </div>
         </header>
+
         <main className="mx-auto max-w-[1400px] px-4 py-8 md:px-8 animate-fade-up">{children}</main>
       </div>
     </div>

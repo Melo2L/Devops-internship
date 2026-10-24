@@ -10,10 +10,10 @@ from backend.security.secure_upload import (
     UnsafeArchiveError,
     validate_zip_archive,
 )
+from backend.services.persistence import save_scan
 from backend.services.project_analyzer import analyze_project
 from backend.services.scan_executor import execute_scan_plan
 from backend.services.scan_planner import create_scan_plan
-from backend.services.persistence import save_scan
 
 router = APIRouter(
     prefix="/api/projects",

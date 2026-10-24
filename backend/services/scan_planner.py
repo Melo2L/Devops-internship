@@ -23,133 +23,73 @@ class ScanPlan:
         return [scan.scanner for scan in self.scans if not scan.enabled]
 
 
-def create_scan_plan(
-    analysis: ProjectAnalysis,
-) -> ScanPlan:
-    """
-    Build a security scanning plan based on project intelligence.
-
-    The planner only decides which scanners should run.
-    It does not execute scanners.
-    """
-
+def create_scan_plan(analysis: ProjectAnalysis) -> ScanPlan:
     scans: list[PlannedScan] = []
+    languages = set(analysis.languages)
+    technologies = {item.lower() for item in analysis.technologies}
+    files = [item.lower() for item in analysis.detected_files]
 
-    # SAST — source-code security analysis.
     source_languages = {
-        "Python",
-        "JavaScript",
-        "TypeScript",
-        "Java",
-        "Go",
-        "Rust",
-        "C",
-        "C/C++",
-        "C++",
-        "C#",
-        "PHP",
-        "Ruby",
-        "Kotlin",
-        "Swift",
+        "Python", "JavaScript", "TypeScript", "Java", "Go", "Rust",
+        "C", "C/C++", "C++", "C#", "PHP", "Ruby", "Kotlin", "Swift",
     }
+    detected_languages = source_languages & languages
 
-    detected_source_languages = source_languages & set(analysis.languages)
+    scans.append(PlannedScan(
+        "semgrep",
+        bool(detected_languages),
+        (
+            "Supported source code detected."
+            if detected_languages
+            else "No supported source languages detected."
+        ),
+    ))
+    scans.append(PlannedScan(
+        "gitleaks",
+        True,
+        "Secret detection is relevant to every project.",
+    ))
 
-    if detected_source_languages:
-        languages = ", ".join(sorted(detected_source_languages))
-
-        scans.append(
-            PlannedScan(
-                scanner="semgrep",
-                enabled=True,
-                reason=(f"Source code detected: {languages}."),
+    code_or_manifest = bool(detected_languages) or any(
+        item.endswith((
+            "package.json", "package-lock.json", "pnpm-lock.yaml",
+            "yarn.lock", "requirements.txt", "pyproject.toml",
+            "poetry.lock", "go.mod", "cargo.toml", "pom.xml",
+            "build.gradle", "dockerfile",
+        ))
+        for item in files
+    )
+    scans.append(PlannedScan(
+        "trivy",
+        code_or_manifest,
+        (
+            (
+                "Project files are suitable for filesystem vulnerability "
+                "and misconfiguration scanning."
             )
-        )
-    else:
-        scans.append(
-            PlannedScan(
-                scanner="semgrep",
-                enabled=False,
-                reason="No supported source languages detected.",
-            )
-        )
+            if code_or_manifest
+            else "No supported source code or dependency manifest detected."
+        ),
+    ))
 
-    # Secrets detection should be performed on every project.
-    scans.append(
-        PlannedScan(
-            scanner="gitleaks",
-            enabled=True,
-            reason=("Secret detection is relevant to every project."),
+    has_iac = (
+        "terraform" in technologies
+        or "kubernetes" in technologies
+        or any(
+            item.endswith((".tf", ".tf.json"))
+            or "k8s/" in item
+            or "kubernetes/" in item
+            for item in files
         )
     )
-
-    # Dependency / filesystem analysis.
-    dependency_files = {
-        "package.json",
-        "requirements.txt",
-        "pyproject.toml",
-        "poetry.lock",
-        "package-lock.json",
-        "pnpm-lock.yaml",
-        "yarn.lock",
-        "pom.xml",
-        "build.gradle",
-        "go.mod",
-        "Cargo.toml",
-    }
-
-    detected_dependency_files = {
-        path.split("/")[-1] for path in analysis.detected_files
-    }
-
-    has_docker = "Docker" in analysis.technologies
-
-    if dependency_files & detected_dependency_files or has_docker:
-        scans.append(
-            PlannedScan(
-                scanner="trivy",
-                enabled=True,
-                reason=("Dependency or container artifacts detected."),
-            )
-        )
-    else:
-        scans.append(
-            PlannedScan(
-                scanner="trivy",
-                enabled=False,
-                reason=("No dependency or container artifacts detected."),
-            )
-        )
-
-    # Infrastructure as Code analysis.
-    has_terraform = "Terraform" in analysis.technologies
-    has_kubernetes = "Kubernetes" in analysis.technologies
-
-    if has_terraform or has_kubernetes:
-        detected_iac = []
-
-        if has_terraform:
-            detected_iac.append("Terraform")
-
-        if has_kubernetes:
-            detected_iac.append("Kubernetes")
-
-        scans.append(
-            PlannedScan(
-                scanner="checkov",
-                enabled=True,
-                reason=(
-                    "Infrastructure as Code detected: " + ", ".join(detected_iac) + "."
-                ),
-            )
-        )
-    else:
-        scans.append(
-            PlannedScan(
-                scanner="checkov",
-                enabled=False,
-                reason=("No supported Infrastructure as Code detected."),
-            )
-        )
+    scans.append(PlannedScan(
+        "checkov",
+        has_iac,
+        (
+            "Terraform or Kubernetes infrastructure detected."
+            if has_iac
+            else "No supported infrastructure-as-code files detected."
+        ),
+    ))
 
     return ScanPlan(scans=scans)

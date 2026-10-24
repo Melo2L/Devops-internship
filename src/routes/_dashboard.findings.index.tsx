@@ -1,4 +1,3 @@
-
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { ArrowUpDown, Search } from "lucide-react";
@@ -29,14 +28,12 @@ export const Route = createFileRoute("/_dashboard/findings/")({
       { title: "Security Findings — SecureScan" },
       {
         name: "description",
-        content:
-          "Explore, filter and triage all security findings from the latest scan.",
+        content: "Explore, filter and triage all security findings from the latest scan.",
       },
       { property: "og:title", content: "Security Findings — SecureScan" },
       {
         property: "og:description",
-        content:
-          "Filterable explorer of all findings by severity, category, scanner and status.",
+        content: "Filterable explorer of all findings by severity, category, scanner and status.",
       },
     ],
   }),
@@ -109,28 +106,19 @@ function FindingsPage() {
       .filter(
         (finding) =>
           !query ||
-          `${finding.title} ${finding.file} ${finding.ruleId}`
-            .toLowerCase()
-            .includes(query),
+          `${finding.title} ${finding.file} ${finding.ruleId}`.toLowerCase().includes(query),
       )
       .sort((a, b) => {
         const comparison =
           sort.key === "severity"
-            ? SEVERITY_ORDER.indexOf(a.severity) -
-              SEVERITY_ORDER.indexOf(b.severity)
+            ? SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity)
             : String(a[sort.key]).localeCompare(String(b[sort.key]));
 
         return comparison * sort.dir;
       });
   }, [findings, q, sev, cat, scanner, status, sort]);
 
-  const Th = ({
-    k,
-    children,
-  }: {
-    k: SortKey;
-    children: React.ReactNode;
-  }) => (
+  const Th = ({ k, children }: { k: SortKey; children: React.ReactNode }) => (
     <th scope="col" className="px-4 py-3 text-left font-normal">
       <button
         className="inline-flex items-center gap-1 eyebrow hover:text-foreground"
@@ -179,12 +167,7 @@ function FindingsPage() {
             options={SEVERITY_ORDER}
           />
 
-          <Filter
-            label="Categories"
-            value={cat}
-            onChange={setCat}
-            options={uniq("category")}
-          />
+          <Filter label="Categories" value={cat} onChange={setCat} options={uniq("category")} />
 
           <Filter
             label="Scanners"
@@ -246,18 +229,14 @@ function FindingsPage() {
                   </p>
                 </td>
 
-                <td className="px-4 py-3 text-muted-foreground">
-                  {finding.category}
-                </td>
+                <td className="px-4 py-3 text-muted-foreground">{finding.category}</td>
 
                 <td className="px-4 py-3 font-mono text-xs">
                   {finding.file}
                   {finding.line ? `:${finding.line}` : ""}
                 </td>
 
-                <td className="px-4 py-3 text-muted-foreground">
-                  {finding.scanner}
-                </td>
+                <td className="px-4 py-3 text-muted-foreground">{finding.scanner}</td>
 
                 <td className="px-4 py-3">
                   <StatusBadge status={finding.status} />

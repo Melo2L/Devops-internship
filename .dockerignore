@@ -49,3 +49,22 @@ docker-compose*.yml
 
 # Documentation / local artifacts
 *.zip
+# Security scanner reports and generated artifacts
+reports/
+artifacts/
+*-report.json
+gitleaks-test.json
+
+# Local databases and application data
+*.db
+*.sqlite
+*.sqlite3
+instance/
+data/
+
+# Local backups and recovery copies
+backups/
+backup-*/
+recovery-*/
+*.bak
+*.backup

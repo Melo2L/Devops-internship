@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/security/brand";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { demoStore, useDemoStore } from "@/hooks/use-demo-store";
+import { scanSessionStore, useScanSession } from "@/hooks/use-scan-session";
 import { projectService } from "@/services";
 
 export const Route = createFileRoute("/_dashboard/scan/new")({
@@ -32,7 +32,7 @@ const MAX = 100 * 1024 * 1024;
 function UploadPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const upload = useDemoStore((state) => state.upload);
+  const upload = useScanSession((state) => state.upload);
   const [drag, setDrag] = useState(false);
   const [busy, setBusy] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -58,7 +58,7 @@ function UploadPage() {
     try {
       const result = await projectService.upload(file);
 
-      demoStore.set({
+      scanSessionStore.set({
         upload: {
           name: result.filename,
           size: result.size_bytes,
@@ -71,8 +71,12 @@ function UploadPage() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
         queryClient.invalidateQueries({ queryKey: ["findings"] }),
+        queryClient.invalidateQueries({ queryKey: ["projects"] }),
+        queryClient.invalidateQueries({ queryKey: ["history"] }),
+        queryClient.invalidateQueries({ queryKey: ["reports"] }),
       ]);
       toast.success("Project uploaded and analyzed successfully.");
+      await navigate({ to: "/overview" });
     } catch (error) {
       const message =
         error instanceof Error
@@ -174,7 +178,7 @@ function UploadPage() {
             size="icon"
             aria-label="Remove file"
             onClick={() =>
-              demoStore.set({
+              scanSessionStore.set({
                 upload: null,
                 uploadResult: null,
                 scanComplete: false,
@@ -197,9 +201,9 @@ function UploadPage() {
         <Button
           size="lg"
           disabled={!upload || busy}
-          onClick={() => navigate({ to: "/scan/configure" })}
+          onClick={() => navigate({ to: "/scan/progress" })}
         >
-          Continue to Analysis
+          View Analysis Results
         </Button>
       </div>
     </div>

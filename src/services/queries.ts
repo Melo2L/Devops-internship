@@ -13,7 +13,17 @@ export const dashboardQuery = queryOptions({
 });
 export const findingsQuery = queryOptions({
   queryKey: ["findings"],
-  queryFn: () => findingService.list(),
+  queryFn: () => {
+    let scanId: string | null = null;
+    try {
+      if (typeof window !== "undefined") {
+        scanId = window.localStorage.getItem("securescan:last-scan-id");
+      }
+    } catch {
+      // If storage is unavailable, retain the API's unfiltered behaviour.
+    }
+    return findingService.list(scanId ?? undefined);
+  },
 });
 export const findingQuery = (id: string) =>
   queryOptions({ queryKey: ["finding", id], queryFn: () => findingService.get(id) });

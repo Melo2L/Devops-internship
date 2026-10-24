@@ -96,6 +96,10 @@ def test_scan_executor_uses_real_scan_plan(monkeypatch) -> None:
             "backend.scanners.semgrep.SemgrepScanner.scan",
             fake_semgrep_scan,
         )
+        monkeypatch.setattr(
+            "backend.services.scan_executor.scan_trivy",
+            lambda project_path: {"Results": []},
+        )
 
         results = execute_scan_plan(
             plan,
@@ -104,10 +108,11 @@ def test_scan_executor_uses_real_scan_plan(monkeypatch) -> None:
 
         assert "gitleaks" in plan.enabled_scanners
 
-        assert len(results) == 2
+        assert len(results) == 3
         assert {result.scanner for result in results} == {
             "gitleaks",
             "semgrep",
+            "trivy",
         }
         assert results[0].scanner == "gitleaks"
         assert results[0].findings == []

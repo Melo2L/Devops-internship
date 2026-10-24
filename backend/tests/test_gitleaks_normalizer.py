@@ -27,7 +27,7 @@ def test_normalize_gitleaks_finding() -> None:
     assert finding.scanner == "gitleaks"
     assert finding.category == FindingCategory.SECRET
     assert finding.severity == FindingSeverity.HIGH
-    assert finding.confidence == 0.95
+    assert finding.confidence is None
     assert finding.file == ".env"
     assert finding.line == 12
     assert finding.rule_id == "aws-access-token"

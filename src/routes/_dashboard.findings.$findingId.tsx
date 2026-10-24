@@ -1,33 +1,18 @@
 import { useState } from "react";
-import {
-  createFileRoute,
-  Link,
-  notFound,
-} from "@tanstack/react-router";
-import {
-  useMutation,
-  useQueryClient,
-  useSuspenseQuery,
-} from "@tanstack/react-query";
+import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 
-import {
-  SeverityBadge,
-  StatusBadge,
-} from "@/components/security/severity";
+import { SeverityBadge, StatusBadge } from "@/components/security/severity";
 import { CodeSnippet } from "@/components/security/code-snippet";
 import { Button } from "@/components/ui/button";
 import { findingService } from "@/services";
 import { findingsQuery } from "@/services/queries";
-import {
-  SEVERITY_LABEL,
-  type FindingStatus,
-} from "@/types/security";
+import { SEVERITY_LABEL, type FindingStatus } from "@/types/security";
 
 export const Route = createFileRoute("/_dashboard/findings/$findingId")({
   loader: async ({ params, context }) => {
-    const findings =
-      await context.queryClient.ensureQueryData(findingsQuery);
+    const findings = await context.queryClient.ensureQueryData(findingsQuery);
 
     const finding = findings.find((item) => item.id === params.findingId);
 
@@ -41,9 +26,7 @@ export const Route = createFileRoute("/_dashboard/findings/$findingId")({
   head: ({ loaderData }) => ({
     meta: [
       {
-        title: loaderData
-          ? `${loaderData.title} — SecureScan`
-          : "Finding not found — SecureScan",
+        title: loaderData ? `${loaderData.title} — SecureScan` : "Finding not found — SecureScan",
       },
       {
         name: "description",
@@ -62,8 +45,8 @@ function FindingNotFound() {
       <p className="font-medium">Finding not found</p>
 
       <p className="mt-2 text-sm text-muted-foreground">
-        This finding could not be found in the API results. Upload and scan a
-        project first, then select a finding from the results list.
+        This finding could not be found in the API results. Upload and scan a project first, then
+        select a finding from the results list.
       </p>
 
       <Button asChild variant="outline" className="mt-4">
@@ -73,13 +56,7 @@ function FindingNotFound() {
   );
 }
 
-function Meta({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function Meta({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4 py-2.5 text-sm">
       <dt className="text-muted-foreground">{label}</dt>
@@ -92,15 +69,13 @@ function FindingDetail() {
   const { findingId } = Route.useParams();
   const queryClient = useQueryClient();
   const { data: findings } = useSuspenseQuery(findingsQuery);
-  const [statusOverride, setStatusOverride] =
-    useState<FindingStatus | null>(null);
+  const [statusOverride, setStatusOverride] = useState<FindingStatus | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
 
   const finding = findings.find((item) => item.id === findingId);
 
   const statusMutation = useMutation({
-    mutationFn: (nextStatus: FindingStatus) =>
-      findingService.updateStatus(findingId, nextStatus),
+    mutationFn: (nextStatus: FindingStatus) => findingService.updateStatus(findingId, nextStatus),
 
     onSuccess: async (updatedFinding) => {
       setStatusOverride(updatedFinding.status);
@@ -113,9 +88,7 @@ function FindingDetail() {
 
     onError: (error) => {
       setStatusError(
-        error instanceof Error
-          ? error.message
-          : "Could not update the finding status.",
+        error instanceof Error ? error.message : "Could not update the finding status.",
       );
     },
   });
@@ -150,14 +123,10 @@ function FindingDetail() {
           <SeverityBadge severity={finding.severity} />
           <StatusBadge status={status} />
 
-          <span className="font-mono text-xs text-muted-foreground">
-            {finding.id}
-          </span>
+          <span className="font-mono text-xs text-muted-foreground">{finding.id}</span>
         </div>
 
-        <h1 className="mt-3 text-2xl font-semibold tracking-tight md:text-3xl">
-          {finding.title}
-        </h1>
+        <h1 className="mt-3 text-2xl font-semibold tracking-tight md:text-3xl">{finding.title}</h1>
 
         <p className="mt-1 font-mono text-sm text-muted-foreground">
           {finding.file}
@@ -167,13 +136,8 @@ function FindingDetail() {
         <div className="mt-4 flex flex-wrap gap-2">
           {status === "open" ? (
             <>
-              <Button
-                onClick={() => updateStatus("resolved")}
-                disabled={statusMutation.isPending}
-              >
-                {statusMutation.isPending
-                  ? "Saving..."
-                  : "Mark as Resolved"}
+              <Button onClick={() => updateStatus("resolved")} disabled={statusMutation.isPending}>
+                {statusMutation.isPending ? "Saving..." : "Mark as Resolved"}
               </Button>
 
               <Button
@@ -245,13 +209,7 @@ function FindingDetail() {
 
         <aside>
           <dl className="panel divide-y px-5 py-2">
-            <Meta label="Severity">
-              {SEVERITY_LABEL[finding.severity]}
-            </Meta>
-
-            <Meta label="Confidence">
-              <span className="capitalize">{finding.confidence}</span>
-            </Meta>
+            <Meta label="Severity">{SEVERITY_LABEL[finding.severity]}</Meta>
 
             <Meta label="Scanner">
               <span className="font-mono">{finding.scanner}</span>
@@ -260,9 +218,7 @@ function FindingDetail() {
             <Meta label="Category">{finding.category}</Meta>
 
             <Meta label="File">
-              <span className="break-all font-mono text-xs">
-                {finding.file}
-              </span>
+              <span className="break-all font-mono text-xs">{finding.file}</span>
             </Meta>
 
             <Meta label="Line">
@@ -270,9 +226,7 @@ function FindingDetail() {
             </Meta>
 
             <Meta label="Rule">
-              <span className="break-all font-mono text-xs">
-                {finding.ruleId || "—"}
-              </span>
+              <span className="break-all font-mono text-xs">{finding.ruleId || "—"}</span>
             </Meta>
           </dl>
         </aside>
