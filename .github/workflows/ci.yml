@@ -112,3 +112,32 @@ jobs:
         env:
           GRAFANA_ADMIN_PASSWORD: "ci-test-only-password"
         run: docker compose build
+
+
+  prometheus-rules:
+    name: Validate Prometheus alert rules
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install Prometheus tools
+        run: |
+          PROMETHEUS_VERSION="3.8.0"
+          ARCHIVE="prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
+          BASE_URL="https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}"
+
+          curl -fsSL "${BASE_URL}/${ARCHIVE}" -o "/tmp/${ARCHIVE}"
+          tar -xzf "/tmp/${ARCHIVE}" -C /tmp
+
+          sudo install -m 0755 "/tmp/prometheus-${PROMETHEUS_VERSION}.linux-amd64/promtool" /usr/local/bin/promtool
+
+          promtool --version
+
+      - name: Check Prometheus alert rule syntax
+        run: |
+          promtool check rules monitoring/prometheus/rules/securescan-alerts.yml
+
+      - name: Test Prometheus alert rules
+        run: |
+          promtool test rules monitoring/prometheus/tests/securescan-alerts-test.yml

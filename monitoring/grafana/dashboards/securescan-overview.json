@@ -2,7 +2,11 @@
   "id": null,
   "uid": "securescan-overview",
   "title": "SecureScan - Operational Overview",
-  "tags": ["securescan", "devops", "monitoring"],
+  "tags": [
+    "securescan",
+    "devops",
+    "monitoring"
+  ],
   "timezone": "browser",
   "schemaVersion": 39,
   "version": 1,
@@ -20,7 +24,12 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
       "targets": [
         {
           "expr": "sum(rate(securescan_http_requests_total[5m]))",
@@ -37,10 +46,15 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
       "targets": [
         {
-          "expr": "sum(rate(securescan_http_requests_total{status=~\"5..\"}[5m]))",
+          "expr": "sum(rate(securescan_http_requests_total{status=~\"5..\"}[5m])) or vector(0)",
           "legendFormat": "5xx errors/sec",
           "refId": "A"
         }
@@ -54,7 +68,12 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
       "targets": [
         {
           "expr": "histogram_quantile(0.95, sum by (le) (rate(securescan_http_request_duration_seconds_bucket[5m])))",
@@ -71,7 +90,12 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
       "targets": [
         {
           "expr": "up{job=\"securescan-backend\"}",
@@ -81,7 +105,9 @@
       ],
       "options": {
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": "",
           "values": false
         },

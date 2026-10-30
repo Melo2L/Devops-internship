@@ -53,6 +53,18 @@ services:
       backend:
         condition: service_healthy
 
+  alertmanager:
+    image: prom/alertmanager:v0.29.0
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./secrets/smtp_password:/etc/alertmanager/secrets/smtp_password:ro
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--web.external-url=http://localhost:9093"
+    restart: unless-stopped
+
   grafana:
     image: grafana/grafana:12.2.0
     ports:

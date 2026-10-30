@@ -1,0 +1,18 @@
+global:
+  smtp_smarthost: "smtp.gmail.com:587"
+  smtp_from: "alisson14melo@gmail.com"
+  smtp_auth_username: "alisson14melo@gmail.com"
+  smtp_auth_password_file: "/etc/alertmanager/secrets/smtp_password"
+  smtp_require_tls: true
+
+route:
+  receiver: "securescan-email"
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: "securescan-email"
+    email_configs:
+      - to: "alisson14melo@gmail.com"
+        send_resolved: true

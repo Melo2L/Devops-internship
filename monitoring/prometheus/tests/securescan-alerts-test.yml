@@ -1,0 +1,23 @@
+rule_files:
+  - ../rules/securescan-alerts.yml
+
+evaluation_interval: 15s
+
+tests:
+  - name: high-server-error-rate
+    interval: 15s
+    input_series:
+      - series: 'securescan_http_requests_total{endpoint="/api/test",method="GET",status="200"}'
+        values: '0+1x40'
+      - series: 'securescan_http_requests_total{endpoint="/api/test",method="GET",status="500"}'
+        values: '0+1x40'
+
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: SecureScanHighServerErrorRate
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "SecureScan HTTP 5xx error rate is high"
+              description: "More than 5% of HTTP requests have returned server errors for at least five minutes."
