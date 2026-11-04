@@ -54,6 +54,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -89,6 +91,9 @@ jobs:
           gitleaks version
           rm -f "/tmp/${ARCHIVE}" /tmp/gitleaks_checksums.txt /tmp/gitleaks
 
+      - name: Scan repository for secrets
+        run: gitleaks git . --redact --verbose
+
       - name: Lint backend
         run: ruff check backend
 
@@ -100,19 +105,56 @@ jobs:
           mkdir -p /tmp/securescan-tests
           pytest -q backend/tests
 
-  docker-build:
-    needs: [frontend, backend]
-    name: Build Docker images
+  terraform:
+    name: Terraform quality gate
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: terraform
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.17.1"
+
+      - name: Check Terraform formatting
+        run: terraform fmt -check -recursive
+
+      - name: Initialize Terraform
+        run: terraform init -backend=false -input=false
+
+      - name: Validate Terraform configuration
+        run: terraform validate
+
+  security-scan:
+    name: Trivy security quality gate
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Build frontend and backend images
-        env:
-          GRAFANA_ADMIN_PASSWORD: "ci-test-only-password"
-        run: docker compose build
+      - name: Scan dependencies for vulnerabilities
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: "1"
 
+      - name: Scan infrastructure and configuration
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          format: table
+          exit-code: "1"
 
   prometheus-rules:
     name: Validate Prometheus alert rules
@@ -142,9 +184,33 @@ jobs:
         run: |
           promtool test rules monitoring/prometheus/tests/securescan-alerts-test.yml
 
+  docker-build:
+    name: Build Docker images
+    needs:
+      - frontend
+      - backend
+      - terraform
+      - security-scan
+      - prometheus-rules
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Build frontend and backend images
+        env:
+          GRAFANA_ADMIN_PASSWORD: "ci-test-only-password"
+        run: docker compose build
+
   docker-publish:
     name: Publish Docker images to GHCR
-    needs: [frontend, backend, docker-build, prometheus-rules]
+    needs:
+      - frontend
+      - backend
+      - terraform
+      - security-scan
+      - prometheus-rules
+      - docker-build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     permissions:
