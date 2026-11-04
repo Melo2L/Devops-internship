@@ -139,3 +139,13 @@ data/
 *.orig
 *~
 recovery-*/
+
+# ==========================================
+# Terraform
+# ==========================================
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
