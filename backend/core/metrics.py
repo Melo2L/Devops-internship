@@ -12,6 +12,30 @@ HTTP_REQUEST_DURATION_SECONDS = Histogram(
     ["method", "endpoint"],
 )
 
+SCANS_TOTAL = Counter(
+    "securescan_scans_total",
+    "Total number of project scans by final status.",
+    ["status"],
+)
+
+SCANNER_EXECUTIONS_TOTAL = Counter(
+    "securescan_scanner_executions_total",
+    "Total number of scanner executions by scanner and result.",
+    ["scanner", "status"],
+)
+
+SCANNER_DURATION_SECONDS = Histogram(
+    "securescan_scanner_duration_seconds",
+    "Scanner execution duration in seconds.",
+    ["scanner"],
+)
+
+FINDINGS_TOTAL = Counter(
+    "securescan_findings_total",
+    "Total number of security findings by severity.",
+    ["severity"],
+)
+
 
 def get_metrics() -> tuple[bytes, str]:
     """Return application metrics in Prometheus exposition format."""

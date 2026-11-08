@@ -1,3 +1,4 @@
+
 import io
 import zipfile
 from unittest.mock import patch
@@ -48,7 +49,7 @@ def test_upload_rejects_non_zip_file():
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == ("Only ZIP archives are supported.")
+    assert response.json()["detail"] == "Only ZIP archives are supported."
 
 
 def test_upload_rejects_invalid_zip():
@@ -88,13 +89,26 @@ def test_upload_accepts_valid_zip():
 
     result = response.json()
 
-    assert result["status"] == "accepted"
+    assert result["status"] == "completed"
     assert result["filename"] == "project.zip"
     assert result["files_detected"] >= 1
     assert result["files_extracted"] >= 1
     assert "analysis" in result
     assert "scan_plan" in result
     assert "scans" in result
+    assert result["message"] == (
+        "Project analysis completed successfully."
+    )
+
+    # The scan must be persisted before the API returns.
+    assert result["id"]
+    assert result["created_at"]
+
+    # Every executed scanner must expose its execution status.
+    for scan in result["scans"]:
+        assert scan["status"] in {"completed", "partial", "failed"}
+        assert "error" in scan
+        assert "findings" in scan
 
 
 def test_upload_returns_500_when_analysis_fails():
@@ -131,9 +145,6 @@ def test_upload_rejects_archive_over_size_limit():
     from backend.api import projects
 
     archive = create_zip({"README.md": "# Test"})
-
-    async def read_oversized_chunk(*args, **kwargs):
-        return b"x" * 1024
 
     async def read_upload(*args, **kwargs):
         if not hasattr(read_upload, "called"):

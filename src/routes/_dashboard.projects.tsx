@@ -62,54 +62,76 @@ function ProjectsPage() {
           </>
         }
       />
+
       <section className="panel p-6">
         <div className="flex items-start gap-4">
           <div className="grid size-11 place-items-center rounded-lg bg-primary/10 text-primary">
             <FolderGit2 className="size-5" />
           </div>
+
           <div>
             <h2 className="font-semibold">{p?.name ?? "No projects yet"}</h2>
+
             <p className="mt-1 text-sm text-muted-foreground">
               {p?.description ?? "Upload a ZIP archive to start your first analysis."}
             </p>
+
             <p className="mt-1 font-mono text-xs text-muted-foreground">
               {p ? `${p.language} · ${p.sizeMb} MB` : "No project uploaded"} · {history.length}{" "}
               scans
             </p>
           </div>
         </div>
+
         <div className="mt-6">
           <p className="eyebrow mb-2">Security Score evolution</p>
           <HistoryChart history={history} height={240} />
         </div>
       </section>
+
       <section className="panel mt-6 divide-y">
-        {scans.map((s, i) => {
-          const prev = scans[i + 1];
-          const d = prev ? s.score - prev.score : null;
-          return (
-            <div key={s.id} className="flex items-center gap-4 px-6 py-4">
-              <span className="font-mono text-sm">Scan #{s.number}</span>
-              <span className="text-sm text-muted-foreground">{fmt(s.date)}</span>
-              <span className="ml-auto text-xs text-muted-foreground">
-                {s.findingCount} findings
-              </span>
-              {d != null && (
-                <span
-                  className={
-                    d >= 0
-                      ? "w-10 text-right font-mono text-xs text-success"
-                      : "w-10 text-right font-mono text-xs text-sev-critical"
-                  }
-                >
-                  {d >= 0 ? "+" : ""}
-                  {d}
+        {scans.length > 0 ? (
+          scans.map((s, i) => {
+            const prev = scans[i + 1];
+            const d = prev ? s.score - prev.score : null;
+
+            return (
+              <Link
+                key={s.id}
+                to="/scan/progress"
+                search={{ scanId: s.id }}
+                className="flex items-center gap-4 px-6 py-4 transition-colors hover:bg-muted/50"
+              >
+                <span className="font-mono text-sm">Scan #{s.number}</span>
+
+                <span className="text-sm text-muted-foreground">{fmt(s.date)}</span>
+
+                <span className="ml-auto text-xs text-muted-foreground">
+                  {s.findingCount} findings
                 </span>
-              )}
-              <span className="w-20 text-right font-mono">{s.score} / 100</span>
-            </div>
-          );
-        })}
+
+                {d != null && (
+                  <span
+                    className={
+                      d >= 0
+                        ? "w-10 text-right font-mono text-xs text-success"
+                        : "w-10 text-right font-mono text-xs text-sev-critical"
+                    }
+                  >
+                    {d >= 0 ? "+" : ""}
+                    {d}
+                  </span>
+                )}
+
+                <span className="w-20 text-right font-mono">{s.score} / 100</span>
+              </Link>
+            );
+          })
+        ) : (
+          <div className="px-6 py-10 text-center text-sm text-muted-foreground">
+            No scans available yet. Upload a project to start your first analysis.
+          </div>
+        )}
       </section>
     </div>
   );

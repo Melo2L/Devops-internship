@@ -1,3 +1,4 @@
+
 import json
 import os
 import sqlite3
@@ -6,9 +7,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+
 DATABASE_PATH = Path(
     os.getenv("SECURESCAN_DATABASE_PATH", "/data/securescan.db")
 )
+
+ALLOWED_SCAN_STATUSES = {"completed", "partial", "failed"}
 
 
 def _connect() -> sqlite3.Connection:
@@ -63,15 +67,19 @@ def initialize_database() -> None:
             """
         )
 
-        # SQLite cannot remove NOT NULL with ALTER COLUMN. Rebuild only the
-        # findings table when an older schema still requires confidence.
+        # SQLite cannot remove NOT NULL with ALTER COLUMN.
+        # Rebuild only when an older schema still requires confidence.
         columns = {
             row["name"]: row
-            for row in db.execute("PRAGMA table_info(findings)").fetchall()
+            for row in db.execute(
+                "PRAGMA table_info(findings)"
+            ).fetchall()
         }
+
         if columns.get("confidence") and columns["confidence"]["notnull"]:
             db.execute("PRAGMA foreign_keys = OFF")
             db.execute("BEGIN")
+
             try:
                 db.execute(
                     """
@@ -94,6 +102,7 @@ def initialize_database() -> None:
                     )
                     """
                 )
+
                 db.execute(
                     """
                     INSERT INTO findings_new (
@@ -107,20 +116,28 @@ def initialize_database() -> None:
                     FROM findings
                     """
                 )
+
                 db.execute("DROP TABLE findings")
-                db.execute("ALTER TABLE findings_new RENAME TO findings")
+                db.execute(
+                    "ALTER TABLE findings_new RENAME TO findings"
+                )
+
                 db.execute(
                     "CREATE INDEX IF NOT EXISTS "
                     "idx_findings_scan_id ON findings(scan_id)"
                 )
+
                 db.execute(
                     "CREATE INDEX IF NOT EXISTS "
                     "idx_findings_severity ON findings(severity)"
                 )
+
                 db.commit()
+
             except Exception:
                 db.rollback()
                 raise
+
             finally:
                 db.execute("PRAGMA foreign_keys = ON")
 
@@ -128,6 +145,13 @@ def initialize_database() -> None:
 def save_scan(result: dict[str, Any]) -> dict[str, Any]:
     scan_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc).isoformat()
+
+    status = result.get("status", "completed")
+
+    if status not in ALLOWED_SCAN_STATUSES:
+        raise ValueError(
+            f"Invalid scan status: {status}"
+        )
 
     with _connect() as db:
         db.execute(
@@ -141,7 +165,7 @@ def save_scan(result: dict[str, Any]) -> dict[str, Any]:
                 scan_id,
                 result["filename"],
                 created_at,
-                "completed",
+                status,
                 result["size_bytes"],
                 result["files_detected"],
                 result["files_extracted"],
@@ -154,8 +178,8 @@ def save_scan(result: dict[str, Any]) -> dict[str, Any]:
                 fingerprint = finding.get("fingerprint")
                 finding_id = fingerprint or str(uuid.uuid4())
 
-                # A fingerprint may recur in separate scans. Scope its
-                # database identity to this scan to preserve scan history.
+                # A fingerprint may recur in separate scans.
+                # Scope its database identity to this scan.
                 finding_id = f"{scan_id}:{finding_id}"
 
                 db.execute(
@@ -188,7 +212,7 @@ def save_scan(result: dict[str, Any]) -> dict[str, Any]:
         "id": scan_id,
         "filename": result["filename"],
         "created_at": created_at,
-        "status": "completed",
+        "status": status,
         "size_bytes": result["size_bytes"],
         "files_detected": result["files_detected"],
         "files_extracted": result["files_extracted"],
@@ -199,7 +223,10 @@ def save_scan(result: dict[str, Any]) -> dict[str, Any]:
         "analysis": result.get("analysis", {}),
         "scan_plan": result.get("scan_plan", {}),
         "scans": result.get("scans", []),
-        "message": result.get("message", "Project analyzed successfully."),
+        "message": result.get(
+            "message",
+            "Project analyzed successfully.",
+        ),
     }
 
 
@@ -219,12 +246,15 @@ def list_scans() -> list[dict[str, Any]]:
         ).fetchall()
 
         results = []
+
         for row in rows:
             item = dict(row)
+
             item["findings_count"] = db.execute(
                 "SELECT COUNT(*) FROM findings WHERE scan_id = ?",
                 (item["id"],),
             ).fetchone()[0]
+
             results.append(item)
 
         return results
@@ -233,7 +263,8 @@ def list_scans() -> list[dict[str, Any]]:
 def get_scan(scan_id: str) -> dict[str, Any] | None:
     with _connect() as db:
         row = db.execute(
-            "SELECT * FROM scans WHERE id = ?", (scan_id,)
+            "SELECT * FROM scans WHERE id = ?",
+            (scan_id,),
         ).fetchone()
 
         if row is None:
@@ -241,14 +272,17 @@ def get_scan(scan_id: str) -> dict[str, Any] | None:
 
         scan = dict(row)
         result = json.loads(scan.pop("result_json"))
+
         scan.update(result)
         scan["id"] = row["id"]
         scan["created_at"] = row["created_at"]
         scan["status"] = row["status"]
+
         scan["findings_count"] = db.execute(
             "SELECT COUNT(*) FROM findings WHERE scan_id = ?",
             (scan_id,),
         ).fetchone()[0]
+
         return scan
 
 
@@ -271,6 +305,7 @@ def list_findings(scan_id: str | None = None) -> list[dict[str, Any]]:
                 """,
                 (scan_id,),
             ).fetchall()
+
         else:
             rows = db.execute(
                 """
@@ -282,7 +317,6 @@ def list_findings(scan_id: str | None = None) -> list[dict[str, Any]]:
         return [dict(row) for row in rows]
 
 
-
 ALLOWED_FINDING_STATUSES = {"open", "resolved", "ignored"}
 
 
@@ -291,6 +325,7 @@ def update_finding_status(
     status: str,
 ) -> dict[str, Any] | None:
     """Update a finding status and return the updated record."""
+
     normalized_status = status.strip().lower()
 
     if normalized_status not in ALLOWED_FINDING_STATUSES:

@@ -2,6 +2,7 @@
 
 export type Severity = "critical" | "high" | "medium" | "low" | "info";
 export type FindingStatus = "open" | "resolved" | "ignored";
+export type ScanStatus = "completed" | "running" | "partial" | "failed";
 export type Scanner = "Semgrep" | "Gitleaks" | "Trivy" | "Checkov";
 export type FindingCategory = "SAST" | "Secrets" | "SCA" | "Container" | "IaC" | "Configuration";
 export type CheckId = "sast" | "dependencies" | "secrets" | "containers" | "iac";
@@ -44,7 +45,7 @@ export interface Scan {
   score: number;
   date: string; // ISO
   findingCount: number;
-  status: "completed" | "running" | "failed";
+  status: ScanStatus;
 }
 
 export interface Project {
@@ -84,6 +85,7 @@ export interface Dashboard {
 }
 
 export const SEVERITY_ORDER: Severity[] = ["critical", "high", "medium", "low", "info"];
+
 export const SEVERITY_LABEL: Record<Severity, string> = {
   critical: "Critical",
   high: "High",

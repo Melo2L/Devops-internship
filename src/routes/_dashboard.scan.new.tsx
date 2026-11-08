@@ -75,8 +75,12 @@ function UploadPage() {
         queryClient.invalidateQueries({ queryKey: ["history"] }),
         queryClient.invalidateQueries({ queryKey: ["reports"] }),
       ]);
+
       toast.success("Project uploaded and analyzed successfully.");
-      await navigate({ to: "/overview" });
+
+      await navigate({
+        to: "/overview",
+      });
     } catch (error) {
       const message =
         error instanceof Error
@@ -201,7 +205,12 @@ function UploadPage() {
         <Button
           size="lg"
           disabled={!upload || busy}
-          onClick={() => navigate({ to: "/scan/progress" })}
+          onClick={() =>
+            navigate({
+              to: "/scan/progress",
+              search: { scanId: undefined },
+            })
+          }
         >
           View Analysis Results
         </Button>

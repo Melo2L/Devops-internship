@@ -41,7 +41,15 @@ function ConfigurePage() {
           </p>
         )}
 
-        <Button className="mt-5" onClick={() => navigate({ to: "/scan/progress" })}>
+        <Button
+          className="mt-5"
+          onClick={() =>
+            navigate({
+              to: "/scan/progress",
+              search: { scanId: undefined },
+            })
+          }
+        >
           View analysis results
         </Button>
       </div>

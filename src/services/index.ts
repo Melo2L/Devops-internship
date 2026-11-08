@@ -5,6 +5,7 @@ import type {
   Report,
   RiskLevel,
   Scan,
+  ScanStatus,
   Severity,
 } from "@/types/security";
 
@@ -53,6 +54,8 @@ export interface ApiScan extends ApiScanSummary {
   };
   scans?: Array<{
     scanner: string;
+    status: string;
+    error?: string | null;
     findings: ApiFinding[];
   }>;
   message?: string;
@@ -116,12 +119,15 @@ function normalizeCategory(value: string, scanner: string): Finding["category"] 
   if (category.includes("secret") || scanner === "Gitleaks") {
     return "Secrets";
   }
+
   if (category.includes("dependency") || category.includes("sca")) {
     return "SCA";
   }
+
   if (category.includes("container")) {
     return "Container";
   }
+
   if (
     category.includes("iac") ||
     category.includes("infrastructure") ||
@@ -129,9 +135,11 @@ function normalizeCategory(value: string, scanner: string): Finding["category"] 
   ) {
     return "IaC";
   }
+
   if (category.includes("sast") || scanner === "Semgrep") {
     return "SAST";
   }
+
   return "Configuration";
 }
 
@@ -144,6 +152,21 @@ function normalizeStatus(value: string): Finding["status"] {
       return "ignored";
     default:
       return "open";
+  }
+}
+
+function normalizeScanStatus(value: string): ScanStatus {
+  switch (value.toLowerCase()) {
+    case "completed":
+      return "completed";
+    case "running":
+      return "running";
+    case "partial":
+      return "partial";
+    case "failed":
+      return "failed";
+    default:
+      return "failed";
   }
 }
 
@@ -168,6 +191,7 @@ function toFinding(raw: ApiFinding): Finding {
     ruleId: raw.rule_id ?? "",
   };
 }
+
 export function mapApiFindings(scan: ApiScan): Finding[] {
   return findingsFromScan(scan);
 }
@@ -221,7 +245,7 @@ function toScan(summary: ApiScanSummary, number: number): Scan {
     score: 0,
     date: summary.created_at,
     findingCount: summary.findings_count,
-    status: summary.status === "completed" ? "completed" : "failed",
+    status: normalizeScanStatus(summary.status),
   };
 }
 
@@ -251,6 +275,7 @@ export const scanService = {
       if (error instanceof Error && error.message.includes("404")) {
         return undefined;
       }
+
       throw error;
     }
   },
@@ -269,6 +294,7 @@ export const scanService = {
       if (error instanceof Error && error.message.includes("404")) {
         return undefined;
       }
+
       throw error;
     }
   },
@@ -283,6 +309,7 @@ export const projectService = {
     const scans = (await apiFetch<ApiScanSummary[]>("/scans")).sort(
       (a, b) => Date.parse(b.created_at) - Date.parse(a.created_at),
     );
+
     const latestByFilename = new Map<string, ApiScanSummary>();
 
     for (const scan of scans) {
@@ -428,6 +455,7 @@ export const dashboardService = {
     // Prefer the scan from the most recent upload when the browser has
     // a saved ID; otherwise fall back to the newest scan returned by the API.
     let preferredScanId: string | null = null;
+
     try {
       if (typeof window !== "undefined") {
         preferredScanId = window.localStorage.getItem("securescan:last-scan-id");
@@ -444,6 +472,7 @@ export const dashboardService = {
     }
 
     const latest = await apiFetch<ApiScan>(`/scans/${encodeURIComponent(latestSummary.id)}`);
+
     // Read persisted finding statuses rather than the original scan snapshot.
     const allFindings = await findingService.list(latest.id);
     const findings = allFindings.filter((finding) => finding.status === "open");

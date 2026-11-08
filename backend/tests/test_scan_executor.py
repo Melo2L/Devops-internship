@@ -1,6 +1,9 @@
+
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from backend.models.findings import FindingCategory, FindingSeverity
+from backend.scanners.semgrep import SemgrepFinding
 from backend.services.project_analyzer import ProjectAnalysis
 from backend.services.scan_executor import execute_scan_plan
 from backend.services.scan_planner import (
@@ -29,10 +32,7 @@ def test_scan_executor_runs_gitleaks() -> None:
             ]
         )
 
-        results = execute_scan_plan(
-            plan,
-            project_path,
-        )
+        results = execute_scan_plan(plan, project_path)
 
         assert len(results) == 1
 
@@ -40,6 +40,8 @@ def test_scan_executor_runs_gitleaks() -> None:
 
         assert result.scanner == "gitleaks"
         assert result.findings == []
+        assert result.status == "completed"
+        assert result.error is None
 
 
 def test_scan_executor_skips_disabled_gitleaks() -> None:
@@ -61,10 +63,7 @@ def test_scan_executor_skips_disabled_gitleaks() -> None:
             ]
         )
 
-        results = execute_scan_plan(
-            plan,
-            project_path,
-        )
+        results = execute_scan_plan(plan, project_path)
 
         assert results == []
 
@@ -80,9 +79,7 @@ def test_scan_executor_uses_real_scan_plan(monkeypatch) -> None:
 
         analysis = ProjectAnalysis(
             total_files=1,
-            languages={
-                "Python": 1,
-            },
+            languages={"Python": 1},
             technologies=[],
             detected_files=[],
         )
@@ -101,10 +98,7 @@ def test_scan_executor_uses_real_scan_plan(monkeypatch) -> None:
             lambda project_path: {"Results": []},
         )
 
-        results = execute_scan_plan(
-            plan,
-            project_path,
-        )
+        results = execute_scan_plan(plan, project_path)
 
         assert "gitleaks" in plan.enabled_scanners
 
@@ -114,25 +108,18 @@ def test_scan_executor_uses_real_scan_plan(monkeypatch) -> None:
             "semgrep",
             "trivy",
         }
+
         assert results[0].scanner == "gitleaks"
-        assert results[0].findings == []
+        assert results[1].scanner == "semgrep"
+        assert results[2].scanner == "trivy"
+
+        assert all(result.status == "completed" for result in results)
 
 
 def test_scan_executor_runs_semgrep(
     monkeypatch,
     tmp_path,
 ) -> None:
-    from backend.models.findings import (
-        FindingCategory,
-        FindingSeverity,
-    )
-    from backend.scanners.semgrep import SemgrepFinding
-    from backend.services.scan_executor import execute_scan_plan
-    from backend.services.scan_planner import (
-        PlannedScan,
-        ScanPlan,
-    )
-
     plan = ScanPlan(
         scans=[
             PlannedScan(
@@ -161,13 +148,12 @@ def test_scan_executor_runs_semgrep(
         fake_scan,
     )
 
-    results = execute_scan_plan(
-        plan,
-        tmp_path,
-    )
+    results = execute_scan_plan(plan, tmp_path)
 
     assert len(results) == 1
     assert results[0].scanner == "semgrep"
+    assert results[0].status == "completed"
+    assert results[0].error is None
     assert len(results[0].findings) == 1
 
     finding = results[0].findings[0]
@@ -179,3 +165,82 @@ def test_scan_executor_runs_semgrep(
     assert finding.file == "app.py"
     assert finding.line == 10
     assert finding.fingerprint == "test-fingerprint"
+
+
+def test_scan_executor_continues_when_a_scanner_fails(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    plan = ScanPlan(
+        scans=[
+            PlannedScan("gitleaks", True, "Test Gitleaks."),
+            PlannedScan("semgrep", True, "Test Semgrep."),
+            PlannedScan("trivy", True, "Test Trivy."),
+        ]
+    )
+
+    def failing_gitleaks(self, project_path):
+        raise RuntimeError("Internal test error with sensitive details")
+
+    monkeypatch.setattr(
+        "backend.scanners.gitleaks.GitleaksScanner.scan",
+        failing_gitleaks,
+    )
+    monkeypatch.setattr(
+        "backend.scanners.semgrep.SemgrepScanner.scan",
+        lambda self, project_path: [],
+    )
+    monkeypatch.setattr(
+        "backend.services.scan_executor.scan_trivy",
+        lambda project_path: {"Results": []},
+    )
+
+    results = execute_scan_plan(plan, tmp_path)
+
+    assert len(results) == 3
+
+    assert results[0].scanner == "gitleaks"
+    assert results[0].status == "failed"
+    assert results[0].findings == []
+    assert results[0].error == "Scanner execution failed."
+    assert "sensitive details" not in results[0].error
+
+    assert results[1].scanner == "semgrep"
+    assert results[1].status == "completed"
+
+    assert results[2].scanner == "trivy"
+    assert results[2].status == "completed"
+
+
+def test_scan_executor_records_all_scanners_as_failed(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    plan = ScanPlan(
+        scans=[
+            PlannedScan("gitleaks", True, "Test Gitleaks."),
+            PlannedScan("semgrep", True, "Test Semgrep."),
+        ]
+    )
+
+    def failing_gitleaks(self, project_path):
+        raise RuntimeError("Gitleaks unavailable")
+
+    def failing_semgrep(self, project_path):
+        raise RuntimeError("Semgrep unavailable")
+
+    monkeypatch.setattr(
+        "backend.scanners.gitleaks.GitleaksScanner.scan",
+        failing_gitleaks,
+    )
+    monkeypatch.setattr(
+        "backend.scanners.semgrep.SemgrepScanner.scan",
+        failing_semgrep,
+    )
+
+    results = execute_scan_plan(plan, tmp_path)
+
+    assert len(results) == 2
+    assert all(result.status == "failed" for result in results)
+    assert all(result.findings == [] for result in results)
+    assert all(result.error == "Scanner execution failed." for result in results)

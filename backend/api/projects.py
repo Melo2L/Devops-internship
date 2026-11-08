@@ -1,9 +1,11 @@
+
 from dataclasses import asdict
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
+from backend.core.metrics import FINDINGS_TOTAL, SCANS_TOTAL
 from backend.security.secure_extraction import extract_archive_safely
 from backend.security.secure_upload import (
     MAX_ARCHIVE_SIZE,
@@ -19,6 +21,37 @@ router = APIRouter(
     prefix="/api/projects",
     tags=["Projects"],
 )
+
+
+def determine_scan_status(scan_results) -> str:
+    """
+    Determine the overall status based on individual scanner results.
+
+    completed: all scanners completed successfully.
+    partial: at least one scanner completed and another failed.
+    failed: all executed scanners failed.
+    """
+
+    if not scan_results:
+        return "completed"
+
+    successful_scans = sum(
+        scan.status == "completed"
+        for scan in scan_results
+    )
+
+    failed_scans = sum(
+        scan.status == "failed"
+        for scan in scan_results
+    )
+
+    if successful_scans == len(scan_results):
+        return "completed"
+
+    if failed_scans == len(scan_results):
+        return "failed"
+
+    return "partial"
 
 
 @router.post("/upload")
@@ -92,8 +125,6 @@ async def upload_project(file: UploadFile = File(...)):
             raise
 
         except (FileNotFoundError, RuntimeError, ValueError) as exc:
-            # Scanner and analysis failures should not be reported as
-            # successful scans.
             raise HTTPException(
                 status_code=500,
                 detail=f"Project analysis failed: {exc}",
@@ -102,10 +133,29 @@ async def upload_project(file: UploadFile = File(...)):
         finally:
             await file.close()
 
-        # The temporary directory is automatically removed after
-        # the response data has been assembled.
+        # 7. Determine the overall scan status.
+        overall_status = determine_scan_status(scan_results)
+
+        # 8. Record scan and finding metrics.
+        SCANS_TOTAL.labels(status=overall_status).inc()
+
+        for scan_result in scan_results:
+            for finding in scan_result.findings:
+                severity = finding.severity.value.lower()
+
+                FINDINGS_TOTAL.labels(
+                    severity=severity,
+                ).inc()
+
+        status_messages = {
+            "completed": "Project analysis completed successfully.",
+            "partial": "Project analysis partially completed.",
+            "failed": "All applicable scanners failed.",
+        }
+
+        # 9. Assemble the complete scan result.
         result = {
-            "status": "accepted",
+            "status": overall_status,
             "filename": filename,
             "size_bytes": total_size,
             "files_detected": len(members),
@@ -118,20 +168,30 @@ async def upload_project(file: UploadFile = File(...)):
             "scans": [
                 {
                     "scanner": scan_result.scanner,
-                    "findings": [asdict(finding) for finding in scan_result.findings],
+                    "status": scan_result.status,
+                    "error": scan_result.error,
+                    "findings": [
+                        asdict(finding)
+                        for finding in scan_result.findings
+                    ],
                 }
                 for scan_result in scan_results
             ],
-            "message": "Project analyzed successfully.",
+            "message": status_messages[overall_status],
         }
 
-        # Persist the completed scan before returning its result.
+        # 10. Persist the scan before returning its result.
         try:
             persisted = save_scan(result)
+
         except (OSError, RuntimeError, ValueError) as exc:
             raise HTTPException(
                 status_code=500,
                 detail=f"Scan completed but could not be persisted: {exc}",
             ) from exc
 
-        return {**result, "id": persisted["id"], "created_at": persisted["created_at"]}
+        return {
+            **result,
+            "id": persisted["id"],
+            "created_at": persisted["created_at"],
+        }

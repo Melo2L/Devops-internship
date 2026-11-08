@@ -49,6 +49,7 @@ function Overview() {
           <p id="score-h" className="eyebrow mb-5">
             Security Score
           </p>
+
           {scan.id === "no-scan" ? (
             <div className="flex h-[168px] flex-col items-center justify-center text-sm text-muted-foreground">
               <span className="text-2xl font-semibold">Not scanned</span>
@@ -57,12 +58,14 @@ function Overview() {
           ) : (
             <ScoreRing score={score.score} />
           )}
+
           <div className="mt-5 flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Risk Level</span>
             <span className="rounded-md border border-sev-medium/30 bg-sev-medium/10 px-2 py-0.5 font-mono text-xs font-medium text-sev-medium">
               {score.riskLevel}
             </span>
           </div>
+
           <p className="mt-5 flex gap-2 text-left text-xs leading-relaxed text-muted-foreground">
             <Info className="mt-0.5 size-3.5 shrink-0" />
             This score represents the security posture detected by the automated analysis. It is not
@@ -71,6 +74,17 @@ function Overview() {
         </section>
 
         <div className="grid gap-4">
+          {scan.id !== "no-scan" && (
+            <div className="flex justify-end">
+              <Button asChild size="sm" variant="outline">
+                <Link to="/scan/progress" search={{ scanId: scan.id }}>
+                  View Analysis Results
+                  <ArrowUpRight className="ml-1 size-4" />
+                </Link>
+              </Button>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
             {SEVERITY_ORDER.map((s) => (
               <Link
@@ -115,6 +129,7 @@ function Overview() {
                 </li>
               </ul>
             </section>
+
             <section className="panel p-5">
               <div className="flex items-start justify-between">
                 <p className="eyebrow">Score trend</p>
@@ -124,6 +139,7 @@ function Overview() {
                   {delta}
                 </span>
               </div>
+
               {history.length > 0 ? (
                 <HistoryChart history={history} height={120} />
               ) : (
@@ -131,6 +147,7 @@ function Overview() {
                   No historical scans available yet.
                 </div>
               )}
+
               <p className="text-xs text-muted-foreground">
                 {history.length > 1
                   ? `${history.length} scans recorded. Current score: ${score.score} / 100. Change from the previous scan: ${delta >= 0 ? "+" : ""}${delta} points.`
@@ -174,6 +191,7 @@ function Overview() {
             )}
           </div>
         </div>
+
         <div className="panel p-4">
           <ResponsiveContainer width="100%" height={300}>
             <RadarChart
@@ -208,6 +226,7 @@ function Overview() {
             </Link>
           </Button>
         </div>
+
         <ul className="divide-y">
           {topFindings.length === 0 ? (
             <li className="px-6 py-8 text-sm text-muted-foreground">

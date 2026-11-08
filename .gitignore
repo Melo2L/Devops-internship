@@ -149,3 +149,6 @@ recovery-*/
 *.tfplan
 crash.log
 crash.*.log
+
+# Grafana local backups
+monitoring/grafana/backups/
