@@ -7,7 +7,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-
 DATABASE_PATH = Path(
     os.getenv("SECURESCAN_DATABASE_PATH", "/data/securescan.db")
 )
