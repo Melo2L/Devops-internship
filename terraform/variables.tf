@@ -1,7 +1,7 @@
 variable "image_tag" {
   description = "Docker image tag to deploy"
   type        = string
-  default     = "latest"
+  default     = "sha-7cf3299"
 }
 
 variable "frontend_image" {

@@ -5,6 +5,10 @@ resource "docker_network" "securescan" {
 
 resource "docker_volume" "securescan_data" {
   name = "securescan-terraform-data"
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "docker_image" "backend" {
@@ -22,6 +26,12 @@ resource "docker_container" "backend" {
   image = docker_image.backend.image_id
 
   restart = "unless-stopped"
+
+  # Resource limits for scanner workloads.
+  memory      = 6144
+  memory_swap = 6144
+  cpu_period  = 100000
+  cpu_quota   = 400000
 
   ports {
     internal = 8000
