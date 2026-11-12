@@ -30,8 +30,7 @@ resource "docker_container" "backend" {
   # Resource limits for scanner workloads.
   memory      = 6144
   memory_swap = 6144
-  cpu_period  = 100000
-  cpu_quota   = 400000
+  cpus        = "4"
 
   ports {
     internal = 8000

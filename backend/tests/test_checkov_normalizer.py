@@ -49,9 +49,7 @@ def test_normalize_checkov_finding() -> None:
 
 
 def test_missing_severity_uses_informational() -> None:
-    findings = normalize_checkov_findings(
-        _report(_check(metadata=None, severity=None))
-    )
+    findings = normalize_checkov_findings(_report(_check(metadata=None, severity=None)))
 
     assert len(findings) == 1
     assert findings[0].severity == FindingSeverity.INFORMATIONAL
@@ -119,6 +117,4 @@ def test_multiple_findings_and_stable_fingerprints() -> None:
 
 def test_empty_report_returns_no_findings() -> None:
     assert normalize_checkov_findings([]) == []
-    assert normalize_checkov_findings(
-        [{"results": {"failed_checks": []}}]
-    ) == []
+    assert normalize_checkov_findings([{"results": {"failed_checks": []}}]) == []

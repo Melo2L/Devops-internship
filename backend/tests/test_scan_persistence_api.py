@@ -138,9 +138,7 @@ def test_scan_endpoints_return_404_for_unknown_scan(isolated_api):
     unknown_scan_id = "scan-does-not-exist"
 
     detail_response = client.get(f"/api/scans/{unknown_scan_id}")
-    scan_findings_response = client.get(
-        f"/api/scans/{unknown_scan_id}/findings"
-    )
+    scan_findings_response = client.get(f"/api/scans/{unknown_scan_id}/findings")
     filtered_findings_response = client.get(
         "/api/findings",
         params={"scan_id": unknown_scan_id},

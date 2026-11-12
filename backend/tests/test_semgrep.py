@@ -334,3 +334,75 @@ def test_semgrep_returns_empty_when_results_key_is_missing(
         ),
     ):
         assert scanner.scan(project) == []
+
+
+@pytest.mark.parametrize(
+    ("report", "expected_message"),
+    [
+        (
+            [],
+            "Semgrep report contains an invalid 'report' object.",
+        ),
+        (
+            None,
+            "Semgrep report contains an invalid 'report' object.",
+        ),
+        (
+            {"results": {}},
+            "Semgrep report contains an invalid 'results' list.",
+        ),
+        (
+            {"results": "invalid"},
+            "Semgrep report contains an invalid 'results' list.",
+        ),
+        (
+            {"results": [None]},
+            "Semgrep report contains an invalid 'results[0]' object.",
+        ),
+        (
+            {"results": [{"extra": []}]},
+            "Semgrep report contains an invalid 'results[0].extra' object.",
+        ),
+        (
+            {"results": [{"start": []}]},
+            "Semgrep report contains an invalid 'results[0].start' object.",
+        ),
+        (
+            {"results": [{"end": []}]},
+            "Semgrep report contains an invalid 'results[0].end' object.",
+        ),
+        (
+            {"results": [{"start": {"line": "invalid"}}]},
+            "Semgrep report contains an invalid 'results[0].start.line' value.",
+        ),
+        (
+            {"results": [{"end": {"line": 0}}]},
+            "Semgrep report contains an invalid 'results[0].end.line' value.",
+        ),
+        (
+            {"results": [{"start": {"line": True}}]},
+            "Semgrep report contains an invalid 'results[0].start.line' value.",
+        ),
+    ],
+)
+def test_semgrep_rejects_invalid_report_structures(
+    tmp_path: Path,
+    report: object,
+    expected_message: str,
+) -> None:
+    scanner, project = make_scanner(tmp_path)
+
+    with (
+        patch(
+            "backend.scanners.semgrep.subprocess.run",
+            return_value=Mock(
+                returncode=0,
+                stdout=json.dumps(report),
+                stderr="",
+            ),
+        ),
+        pytest.raises(RuntimeError) as error,
+    ):
+        scanner.scan(project)
+
+    assert str(error.value) == expected_message

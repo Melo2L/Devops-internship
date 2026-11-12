@@ -16,7 +16,6 @@ def test_normalize_gitleaks_finding() -> None:
         severity="High",
         file=".env",
         line=12,
-        secret="SECRET_VALUE_MUST_NOT_BE_PROPAGATED",
         commit=None,
     )
 
@@ -44,7 +43,6 @@ def test_normalize_multiple_gitleaks_findings() -> None:
             severity="High",
             file="config/.env",
             line=5,
-            secret="SECRET_ONE",
             commit=None,
         ),
         GitleaksFinding(
@@ -53,7 +51,6 @@ def test_normalize_multiple_gitleaks_findings() -> None:
             severity="High",
             file="config/prod.env",
             line=8,
-            secret="SECRET_TWO",
             commit=None,
         ),
     ]

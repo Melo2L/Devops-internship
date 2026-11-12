@@ -1,4 +1,3 @@
-
 import io
 import zipfile
 from unittest.mock import patch
@@ -96,9 +95,7 @@ def test_upload_accepts_valid_zip():
     assert "analysis" in result
     assert "scan_plan" in result
     assert "scans" in result
-    assert result["message"] == (
-        "Project analysis completed successfully."
-    )
+    assert result["message"] == ("Project analysis completed successfully.")
 
     # The scan must be persisted before the API returns.
     assert result["id"]

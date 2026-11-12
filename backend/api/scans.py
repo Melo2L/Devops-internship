@@ -37,7 +37,6 @@ def findings_list(scan_id: str | None = Query(default=None)):
     return list_findings(scan_id)
 
 
-
 @router.patch("/findings/{finding_id}/status")
 def finding_status_update(
     finding_id: str,

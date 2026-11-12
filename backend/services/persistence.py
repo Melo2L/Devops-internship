@@ -1,4 +1,3 @@
-
 import json
 import os
 import sqlite3
@@ -7,9 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-DATABASE_PATH = Path(
-    os.getenv("SECURESCAN_DATABASE_PATH", "/data/securescan.db")
-)
+DATABASE_PATH = Path(os.getenv("SECURESCAN_DATABASE_PATH", "/data/securescan.db"))
 
 ALLOWED_SCAN_STATUSES = {"completed", "partial", "failed"}
 
@@ -70,9 +67,7 @@ def initialize_database() -> None:
         # Rebuild only when an older schema still requires confidence.
         columns = {
             row["name"]: row
-            for row in db.execute(
-                "PRAGMA table_info(findings)"
-            ).fetchall()
+            for row in db.execute("PRAGMA table_info(findings)").fetchall()
         }
 
         if columns.get("confidence") and columns["confidence"]["notnull"]:
@@ -117,9 +112,7 @@ def initialize_database() -> None:
                 )
 
                 db.execute("DROP TABLE findings")
-                db.execute(
-                    "ALTER TABLE findings_new RENAME TO findings"
-                )
+                db.execute("ALTER TABLE findings_new RENAME TO findings")
 
                 db.execute(
                     "CREATE INDEX IF NOT EXISTS "
@@ -148,9 +141,7 @@ def save_scan(result: dict[str, Any]) -> dict[str, Any]:
     status = result.get("status", "completed")
 
     if status not in ALLOWED_SCAN_STATUSES:
-        raise ValueError(
-            f"Invalid scan status: {status}"
-        )
+        raise ValueError(f"Invalid scan status: {status}")
 
     with _connect() as db:
         db.execute(
@@ -216,8 +207,7 @@ def save_scan(result: dict[str, Any]) -> dict[str, Any]:
         "files_detected": result["files_detected"],
         "files_extracted": result["files_extracted"],
         "findings_count": sum(
-            len(scan.get("findings", []))
-            for scan in result.get("scans", [])
+            len(scan.get("findings", [])) for scan in result.get("scans", [])
         ),
         "analysis": result.get("analysis", {}),
         "scan_plan": result.get("scan_plan", {}),
@@ -328,9 +318,7 @@ def update_finding_status(
     normalized_status = status.strip().lower()
 
     if normalized_status not in ALLOWED_FINDING_STATUSES:
-        raise ValueError(
-            "Invalid status. Allowed values: open, resolved, ignored."
-        )
+        raise ValueError("Invalid status. Allowed values: open, resolved, ignored.")
 
     with _connect() as db:
         cursor = db.execute(

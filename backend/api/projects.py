@@ -1,4 +1,3 @@
-
 from dataclasses import asdict
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -35,15 +34,9 @@ def determine_scan_status(scan_results) -> str:
     if not scan_results:
         return "completed"
 
-    successful_scans = sum(
-        scan.status == "completed"
-        for scan in scan_results
-    )
+    successful_scans = sum(scan.status == "completed" for scan in scan_results)
 
-    failed_scans = sum(
-        scan.status == "failed"
-        for scan in scan_results
-    )
+    failed_scans = sum(scan.status == "failed" for scan in scan_results)
 
     if successful_scans == len(scan_results):
         return "completed"
@@ -170,10 +163,7 @@ async def upload_project(file: UploadFile = File(...)):
                     "scanner": scan_result.scanner,
                     "status": scan_result.status,
                     "error": scan_result.error,
-                    "findings": [
-                        asdict(finding)
-                        for finding in scan_result.findings
-                    ],
+                    "findings": [asdict(finding) for finding in scan_result.findings],
                 }
                 for scan_result in scan_results
             ],

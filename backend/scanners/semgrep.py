@@ -4,6 +4,7 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 DEFAULT_SEMGREP_PATH = Path(
     os.getenv(
@@ -35,6 +36,38 @@ class SemgrepScanner:
         self.timeout_seconds = timeout_seconds
         self.config = config
 
+    @staticmethod
+    def _validate_object(
+        value: Any,
+        field_name: str,
+    ) -> dict[str, Any]:
+        if not isinstance(value, dict):
+            raise RuntimeError(
+                f"Semgrep report contains an invalid '{field_name}' object."
+            )
+
+        return value
+
+    @staticmethod
+    def _validate_line(
+        value: Any,
+        field_name: str,
+    ) -> int | None:
+        if value is None:
+            return None
+
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise RuntimeError(
+                f"Semgrep report contains an invalid '{field_name}' value."
+            )
+
+        if value < 1:
+            raise RuntimeError(
+                f"Semgrep report contains an invalid '{field_name}' value."
+            )
+
+        return value
+
     def scan(self, project_path: Path) -> list[SemgrepFinding]:
         executable = str(self.executable_path)
 
@@ -55,9 +88,7 @@ class SemgrepScanner:
             executable = resolved_executable
 
         if not project_path.is_dir():
-            raise ValueError(
-                f"Project directory does not exist: {project_path}"
-            )
+            raise ValueError(f"Project directory does not exist: {project_path}")
 
         command = [
             executable,
@@ -100,24 +131,54 @@ class SemgrepScanner:
         try:
             report = json.loads(stdout)
         except json.JSONDecodeError as exc:
-            raise RuntimeError(
-                "Semgrep produced invalid JSON output."
-            ) from exc
+            raise RuntimeError("Semgrep produced invalid JSON output.") from exc
 
         if result.returncode not in (0, 1):
             stderr = result.stderr.strip()
 
             raise RuntimeError(
-                "Semgrep execution failed."
-                + (f" Details: {stderr}" if stderr else "")
+                "Semgrep execution failed." + (f" Details: {stderr}" if stderr else "")
             )
 
-        findings = []
+        report = self._validate_object(report, "report")
 
-        for result_data in report.get("results", []):
-            extra = result_data.get("extra", {})
-            start = result_data.get("start", {})
-            end = result_data.get("end", {})
+        results = report.get("results", [])
+
+        if not isinstance(results, list):
+            raise RuntimeError("Semgrep report contains an invalid 'results' list.")
+
+        findings: list[SemgrepFinding] = []
+
+        for index, result_data in enumerate(results):
+            result_data = self._validate_object(
+                result_data,
+                f"results[{index}]",
+            )
+
+            extra = self._validate_object(
+                result_data.get("extra", {}),
+                f"results[{index}].extra",
+            )
+
+            start = self._validate_object(
+                result_data.get("start", {}),
+                f"results[{index}].start",
+            )
+
+            end = self._validate_object(
+                result_data.get("end", {}),
+                f"results[{index}].end",
+            )
+
+            start_line = self._validate_line(
+                start.get("line"),
+                f"results[{index}].start.line",
+            )
+
+            end_line = self._validate_line(
+                end.get("line"),
+                f"results[{index}].end.line",
+            )
 
             findings.append(
                 SemgrepFinding(
@@ -145,20 +206,10 @@ class SemgrepScanner:
                             "",
                         )
                     ),
-                    start_line=(
-                        int(start["line"])
-                        if start.get("line") is not None
-                        else None
-                    ),
-                    end_line=(
-                        int(end["line"])
-                        if end.get("line") is not None
-                        else None
-                    ),
+                    start_line=start_line,
+                    end_line=end_line,
                     fingerprint=(
-                        str(extra["fingerprint"])
-                        if extra.get("fingerprint")
-                        else None
+                        str(extra["fingerprint"]) if extra.get("fingerprint") else None
                     ),
                 )
             )

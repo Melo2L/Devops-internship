@@ -1,13 +1,12 @@
 import json
+import re
 import subprocess
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
 
-from backend.scanners.gitleaks import (
-    GitleaksScanner,
-)
+from backend.scanners.gitleaks import GitleaksScanner
 
 
 def create_scanner(
@@ -20,6 +19,16 @@ def create_scanner(
         executable_path=executable_path,
         timeout_seconds=timeout_seconds,
     )
+
+
+def get_report_path(args: tuple[object, ...]) -> Path:
+    command = args[0]
+
+    assert isinstance(command, list)
+
+    report_index = command.index("--report-path")
+
+    return Path(str(command[report_index + 1]))
 
 
 def test_gitleaks_rejects_missing_executable(
@@ -66,13 +75,26 @@ def test_gitleaks_timeout_raises_runtime_error(
         timeout_seconds=5,
     )
 
+    captured_report_path: Path | None = None
+
+    def fake_run(*args: object, **kwargs: object) -> Mock:
+        nonlocal captured_report_path
+
+        captured_report_path = get_report_path(args)
+        captured_report_path.write_text(
+            "temporary report",
+            encoding="utf-8",
+        )
+
+        raise subprocess.TimeoutExpired(
+            cmd="gitleaks",
+            timeout=5,
+        )
+
     with (
         patch(
             "backend.scanners.gitleaks.subprocess.run",
-            side_effect=subprocess.TimeoutExpired(
-                cmd="gitleaks",
-                timeout=5,
-            ),
+            side_effect=fake_run,
         ),
         pytest.raises(
             RuntimeError,
@@ -80,6 +102,9 @@ def test_gitleaks_timeout_raises_runtime_error(
         ),
     ):
         scanner.scan(project)
+
+    assert captured_report_path is not None
+    assert not captured_report_path.exists()
 
 
 def test_gitleaks_rejects_invalid_json_report(
@@ -94,9 +119,14 @@ def test_gitleaks_rejects_invalid_json_report(
         executable_path=executable,
     )
 
+    captured_report_path: Path | None = None
+
     def fake_run(*args: object, **kwargs: object) -> Mock:
-        report_path = project / ".gitleaks-report.json"
-        report_path.write_text(
+        nonlocal captured_report_path
+
+        captured_report_path = get_report_path(args)
+
+        captured_report_path.write_text(
             "{invalid json",
             encoding="utf-8",
         )
@@ -115,7 +145,9 @@ def test_gitleaks_rejects_invalid_json_report(
     ):
         scanner.scan(project)
 
-    assert not (project / ".gitleaks-report.json").exists()
+    assert captured_report_path is not None
+    assert project not in captured_report_path.parents
+    assert not captured_report_path.exists()
 
 
 @pytest.mark.parametrize(
@@ -155,7 +187,7 @@ def test_gitleaks_rejects_unexpected_exit_code(
         ),
         pytest.raises(
             RuntimeError,
-            match="^" + expected_message.replace(".", r"\.") + "$",
+            match="^" + re.escape(expected_message) + "$",
         ),
     ):
         scanner.scan(project)
@@ -187,9 +219,14 @@ def test_gitleaks_normalizes_findings_and_removes_report(
         },
     ]
 
+    captured_report_path: Path | None = None
+
     def fake_run(*args: object, **kwargs: object) -> Mock:
-        report_path = project / ".gitleaks-report.json"
-        report_path.write_text(
+        nonlocal captured_report_path
+
+        captured_report_path = get_report_path(args)
+
+        captured_report_path.write_text(
             json.dumps(report),
             encoding="utf-8",
         )
@@ -209,14 +246,14 @@ def test_gitleaks_normalizes_findings_and_removes_report(
     assert findings[0].severity == "High"
     assert findings[0].file == "config.py"
     assert findings[0].line == 12
-    assert findings[0].secret == "REDACTED_TEST_VALUE"
     assert findings[0].commit == "abc123"
 
     assert findings[1].rule_id == "minimal-rule"
     assert findings[1].description == "Potential secret detected."
     assert findings[1].file == ""
     assert findings[1].line is None
-    assert findings[1].secret is None
     assert findings[1].commit is None
 
-    assert not (project / ".gitleaks-report.json").exists()
+    assert captured_report_path is not None
+    assert project not in captured_report_path.parents
+    assert not captured_report_path.exists()
