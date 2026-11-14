@@ -152,3 +152,4 @@ crash.*.log
 
 # Grafana local backups
 monitoring/grafana/backups/
+terraform/main.tf.cpu-backup
