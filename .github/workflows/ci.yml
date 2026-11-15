@@ -265,3 +265,88 @@ jobs:
           push: true
           tags: ${{ steps.meta-backend.outputs.tags }}
           labels: ${{ steps.meta-backend.outputs.labels }}
+
+  deploy:
+    name: Deploy SecureScan on Ubuntu
+    needs: docker-publish
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, Linux, X64, securescan-deploy]
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Pull published Docker images
+        env:
+          DEPLOY_ENV_FILE: /home/melo/Downloads/securescan-melo-clean/.env
+        run: |
+          TAG="sha-$(git rev-parse --short=7 "$GITHUB_SHA")"
+          export SECURESCAN_IMAGE_TAG="$TAG"
+
+          echo "Deploying images with tag: $TAG"
+
+          docker compose \
+            --project-name securescan-melo-clean \
+            --project-directory /home/melo/Downloads/securescan-melo-clean \
+            --env-file "$DEPLOY_ENV_FILE" \
+            -f "$GITHUB_WORKSPACE/compose.yaml" \
+            pull backend frontend
+
+      - name: Update backend and frontend
+        env:
+          DEPLOY_ENV_FILE: /home/melo/Downloads/securescan-melo-clean/.env
+        run: |
+          TAG="sha-$(git rev-parse --short=7 "$GITHUB_SHA")"
+          export SECURESCAN_IMAGE_TAG="$TAG"
+
+          docker compose \
+            --project-name securescan-melo-clean \
+            --project-directory /home/melo/Downloads/securescan-melo-clean \
+            --env-file "$DEPLOY_ENV_FILE" \
+            -f "$GITHUB_WORKSPACE/compose.yaml" \
+            up -d --no-build backend frontend
+
+      - name: Verify backend and frontend
+        run: |
+          echo "Checking backend health..."
+
+          backend_ok=0
+
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/health; then
+              backend_ok=1
+              break
+            fi
+
+            sleep 2
+          done
+
+          if [ "$backend_ok" -ne 1 ]; then
+            echo "ERROR: Backend health check failed."
+            exit 1
+          fi
+
+          echo ""
+          echo "Checking frontend HTTP response..."
+
+          frontend_ok=0
+
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3000/ -o /dev/null; then
+              frontend_ok=1
+              break
+            fi
+
+            sleep 2
+          done
+
+          if [ "$frontend_ok" -ne 1 ]; then
+            echo "ERROR: Frontend HTTP check failed."
+            exit 1
+          fi
+
+          echo "Deployment verification successful."
