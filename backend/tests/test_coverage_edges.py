@@ -195,6 +195,7 @@ def test_checkov_accepts_json_object_report(monkeypatch, tmp_path):
 def test_gitleaks_accepts_empty_report(monkeypatch, tmp_path):
     from pathlib import Path
     from unittest.mock import Mock
+
     from backend.scanners.gitleaks import GitleaksScanner
 
     executable = tmp_path / "gitleaks"
@@ -220,6 +221,7 @@ def test_gitleaks_accepts_empty_report(monkeypatch, tmp_path):
 def test_trivy_accepts_null_results(monkeypatch, tmp_path):
     import json
     from unittest.mock import Mock
+
     from backend.scanners.trivy import scan_trivy
 
     project = tmp_path / "project"
@@ -244,6 +246,7 @@ def test_trivy_accepts_null_results(monkeypatch, tmp_path):
 def test_trivy_accepts_empty_result_object(monkeypatch, tmp_path):
     import json
     from unittest.mock import Mock
+
     from backend.scanners.trivy import scan_trivy
 
     project = tmp_path / "project"
@@ -269,6 +272,7 @@ def test_semgrep_resolves_executable_from_path(monkeypatch, tmp_path):
     import json
     from pathlib import Path
     from unittest.mock import Mock
+
     from backend.scanners.semgrep import SemgrepScanner
 
     project = tmp_path / "project"
@@ -329,6 +333,5 @@ def test_semgrep_raises_when_executable_is_not_in_path(tmp_path):
     with patch(
         "backend.scanners.semgrep.shutil.which",
         return_value=None,
-    ):
-        with pytest.raises(FileNotFoundError, match="not found in PATH"):
-            scanner.scan(tmp_path)
+    ), pytest.raises(FileNotFoundError, match="not found in PATH"):
+        scanner.scan(tmp_path)
