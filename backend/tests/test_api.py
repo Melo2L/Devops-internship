@@ -191,3 +191,117 @@ def test_metrics_endpoint_exposes_http_request_metrics():
     assert "securescan_http_requests_total" in content
     assert "securescan_http_request_duration_seconds" in content
     assert 'endpoint="/health"' in content
+
+
+def test_upload_records_findings_metrics(tmp_path):
+    from backend.models.findings import (
+        Finding,
+        FindingCategory,
+        FindingSeverity,
+    )
+    from backend.services.scan_executor import ScanExecutionResult
+
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, "w") as zip_file:
+        zip_file.writestr("README.md", "# Test project")
+
+    finding = Finding(
+        scanner="semgrep",
+        category=FindingCategory.SOURCE_CODE,
+        severity=FindingSeverity.HIGH,
+        confidence=0.95,
+        title="Test finding",
+        description="Finding used to test metrics.",
+        file="app.py",
+        line=1,
+    )
+
+    scan_result = ScanExecutionResult(
+        scanner="semgrep",
+        findings=[finding],
+        status="completed",
+    )
+
+    def metric_value(metrics, metric_name, label, value):
+        prefix = f'{metric_name}{{{label}="{value}"}} '
+        for line in metrics.splitlines():
+            if line.startswith(prefix):
+                return float(line[len(prefix):])
+        return 0.0
+
+    before_metrics = client.get("/metrics")
+    assert before_metrics.status_code == 200
+
+    before_findings = metric_value(
+        before_metrics.text,
+        "securescan_findings_total",
+        "severity",
+        "high",
+    )
+    before_scans = metric_value(
+        before_metrics.text,
+        "securescan_scans_total",
+        "status",
+        "completed",
+    )
+
+    with patch(
+        "backend.api.projects.execute_scan_plan",
+        return_value=[scan_result],
+    ):
+        response = client.post(
+            "/api/projects/upload",
+            files={
+                "file": (
+                    "metrics-test.zip",
+                    archive.getvalue(),
+                    "application/zip",
+                )
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["scans"][0]["findings"][0]["title"] == "Test finding"
+
+    after_metrics = client.get("/metrics")
+    assert after_metrics.status_code == 200
+
+    after_findings = metric_value(
+        after_metrics.text,
+        "securescan_findings_total",
+        "severity",
+        "high",
+    )
+    after_scans = metric_value(
+        after_metrics.text,
+        "securescan_scans_total",
+        "status",
+        "completed",
+    )
+
+    assert after_findings == before_findings + 1
+    assert after_scans == before_scans + 1
+
+
+def test_upload_returns_500_when_scan_cannot_be_persisted():
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, "w") as zip_file:
+        zip_file.writestr("README.md", "# Test project")
+
+    with patch(
+        "backend.api.projects.save_scan",
+        side_effect=RuntimeError("Database unavailable"),
+    ):
+        response = client.post(
+            "/api/projects/upload",
+            files={
+                "file": (
+                    "persistence-error.zip",
+                    archive.getvalue(),
+                    "application/zip",
+                )
+            },
+        )
+
+    assert response.status_code == 500
+    assert "could not be persisted" in response.json()["detail"]

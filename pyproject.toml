@@ -8,3 +8,14 @@ ignore = ["B008"]
 
 [tool.pytest.ini_options]
 testpaths = ["backend/tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["backend"]
+omit = [
+    "backend/tests/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false

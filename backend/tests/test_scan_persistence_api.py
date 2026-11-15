@@ -147,3 +147,19 @@ def test_scan_endpoints_return_404_for_unknown_scan(isolated_api):
     assert detail_response.status_code == 404
     assert scan_findings_response.status_code == 404
     assert filtered_findings_response.status_code == 404
+
+
+def test_finding_status_normalizes_whitespace_and_case(isolated_api):
+    client, persistence = isolated_api
+    saved, finding_id = save_sample_scan(persistence)
+
+    response = client.patch(
+        f"/api/findings/{finding_id}/status",
+        json={"status": " RESOLVED "},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "resolved"
+
+    stored = persistence.list_findings(saved["id"])
+    assert stored[0]["status"] == "resolved"
