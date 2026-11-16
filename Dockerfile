@@ -38,6 +38,9 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+# Update npm to fix vulnerable bundled dependencies
+RUN npm install --global npm@11.21.2
+
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/package.json ./package.json
