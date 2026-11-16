@@ -184,8 +184,9 @@ jobs:
         run: |
           promtool test rules monitoring/prometheus/tests/securescan-alerts-test.yml
 
+
   docker-build:
-    name: Build Docker images
+    name: Build and scan Docker images
     needs:
       - frontend
       - backend
@@ -201,6 +202,26 @@ jobs:
         env:
           GRAFANA_ADMIN_PASSWORD: "ci-test-only-password"
         run: docker compose build
+
+      - name: Scan frontend Docker image with Trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: ghcr.io/melo2l/devops-internship-frontend:latest
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: "1"
+
+      - name: Scan backend Docker image with Trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: ghcr.io/melo2l/devops-internship-backend:latest
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: "1"
 
   docker-publish:
     name: Publish Docker images to GHCR
@@ -239,25 +260,14 @@ jobs:
             type=raw,value=latest
             type=sha,prefix=sha-
 
-      - name: Build frontend image
+      - name: Build and push frontend image
         uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile
-          push: false
-          load: true
-          tags: ghcr.io/melo2l/devops-internship-frontend:latest
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
-
-      - name: Scan frontend Docker image with Trivy
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          scan-type: image
-          image-ref: ghcr.io/melo2l/devops-internship-frontend:latest
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          format: table
-          exit-code: "1"
 
       - name: Extract Docker metadata for backend
         id: meta-backend
@@ -268,47 +278,14 @@ jobs:
             type=raw,value=latest
             type=sha,prefix=sha-
 
-      - name: Build backend image
+      - name: Build and push backend image
         uses: docker/build-push-action@v7
         with:
           context: .
           file: ./backend/Dockerfile
-          push: false
-          load: true
-          tags: ghcr.io/melo2l/devops-internship-backend:latest
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
           labels: ${{ steps.meta-backend.outputs.labels }}
-
-      - name: Scan backend Docker image with Trivy
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          scan-type: image
-          image-ref: ghcr.io/melo2l/devops-internship-backend:latest
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          format: table
-          exit-code: "1"
-
-
-      - name: Tag Docker images for release
-        run: |
-          SHA_TAG="sha-$(git rev-parse --short=7 "$GITHUB_SHA")"
-
-          docker tag ghcr.io/melo2l/devops-internship-frontend:latest \
-            ghcr.io/melo2l/devops-internship-frontend:"$SHA_TAG"
-
-          docker tag ghcr.io/melo2l/devops-internship-backend:latest \
-            ghcr.io/melo2l/devops-internship-backend:"$SHA_TAG"
-
-      - name: Push frontend and backend images to GHCR
-        run: |
-          SHA_TAG="sha-$(git rev-parse --short=7 "$GITHUB_SHA")"
-
-          docker push ghcr.io/melo2l/devops-internship-frontend:latest
-          docker push ghcr.io/melo2l/devops-internship-frontend:"$SHA_TAG"
-
-          docker push ghcr.io/melo2l/devops-internship-backend:latest
-          docker push ghcr.io/melo2l/devops-internship-backend:"$SHA_TAG"
-
 
   deploy:
     name: Deploy SecureScan on Ubuntu
