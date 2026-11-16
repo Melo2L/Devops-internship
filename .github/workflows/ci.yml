@@ -103,7 +103,7 @@ jobs:
           PYTHONPATH: .
         run: |
           mkdir -p /tmp/securescan-tests
-          pytest -q backend/tests
+          pytest -q --cov=backend --cov-branch --cov-report=term-missing backend/tests
 
   terraform:
     name: Terraform quality gate
