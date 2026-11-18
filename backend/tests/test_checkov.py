@@ -45,31 +45,78 @@ def test_checkov_requires_executable(tmp_path: Path) -> None:
         scan_checkov(tmp_path)
 
 
-def test_checkov_parses_valid_json(tmp_path: Path) -> None:
+def test_checkov_parses_valid_json_and_uses_isolated_workspace(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / ".checkov.yaml").write_text(
+        "external-checks-dir: [/tmp/untrusted]\n"
+    )
+    (tmp_path / ".checkov.yml").write_text(
+        "external-checks-dir: [/tmp/untrusted]\n"
+    )
+    (tmp_path / "main.tf").write_text('resource "test" {}\n')
+    (tmp_path / ".gitignore").write_text("*.tfstate\n")
+    nested_dir = tmp_path / "nested"
+    nested_dir.mkdir()
+    (nested_dir / "module.tf").write_text('resource "nested" {}\n')
+
+    temporary_roots: list[Path] = []
+
+    def inspect_isolated_run(command, **kwargs):
+        scan_directory = Path(command[2])
+        temporary_roots.append(Path(kwargs["cwd"]).parent)
+        assert scan_directory != tmp_path.resolve()
+        assert scan_directory.is_dir()
+        assert not (scan_directory / ".checkov.yaml").exists()
+        assert not (scan_directory / ".checkov.yml").exists()
+        assert (scan_directory / "main.tf").is_file()
+        assert (scan_directory / ".gitignore").is_file()
+        assert (scan_directory / "nested" / "module.tf").is_file()
+
+        assert Path(kwargs["cwd"]).is_dir()
+        assert Path(kwargs["cwd"]) != tmp_path.resolve()
+        assert Path(kwargs["env"]["HOME"]).is_dir()
+        assert kwargs["env"]["HOME"] != str(Path.home())
+
+        assert "CKV_TEST_SETTING" not in kwargs["env"]
+        assert "CHECKOV_TEST_SETTING" not in kwargs["env"]
+
+        return _mock_result()
+
     with (
         patch(
             "backend.scanners.checkov.shutil.which",
             return_value="/usr/bin/checkov",
         ),
+        patch.dict(
+            "os.environ",
+            {
+                "CKV_TEST_SETTING": "untrusted",
+                "CHECKOV_TEST_SETTING": "untrusted",
+            },
+        ),
         patch(
             "backend.scanners.checkov.subprocess.run",
-            return_value=_mock_result(),
+            side_effect=inspect_isolated_run,
         ) as run,
     ):
         report = scan_checkov(tmp_path)
 
     assert report == _report()
+    assert len(temporary_roots) == 1
+    assert not temporary_roots[0].exists()
 
     command = run.call_args.args[0]
-    assert command[1:] == [
-        "-d",
-        str(tmp_path.resolve()),
-        "-o",
-        "json",
-        "--quiet",
-    ]
+    assert command[0] == "/usr/bin/checkov"
+    assert command[1] == "-d"
+    assert command[2].endswith("/project")
+    assert command[3:] == ["-o", "json", "--quiet"]
     assert run.call_args.kwargs["timeout"] == 900
     assert run.call_args.kwargs["check"] is False
+
+    # The original project remains untouched.
+    assert (tmp_path / ".checkov.yaml").is_file()
+    assert (tmp_path / ".checkov.yml").is_file()
 
 
 def test_checkov_accepts_valid_report_with_failed_checks(
@@ -145,7 +192,53 @@ def test_checkov_rejects_unexpected_json_structure(
         scan_checkov(tmp_path)
 
 
-def test_checkov_timeout_raises_runtime_error(
+def test_checkov_timeout_raises_runtime_error_and_cleans_workspace(
+    tmp_path: Path,
+) -> None:
+    temporary_roots: list[Path] = []
+
+    def simulate_timeout(command, **kwargs):
+        temporary_roots.append(Path(kwargs["cwd"]).parent)
+        raise subprocess.TimeoutExpired(
+            cmd="checkov",
+            timeout=900,
+        )
+
+    with (
+        patch(
+            "backend.scanners.checkov.shutil.which",
+            return_value="/usr/bin/checkov",
+        ),
+        patch(
+            "backend.scanners.checkov.subprocess.run",
+            side_effect=simulate_timeout,
+        ),
+        pytest.raises(
+            RuntimeError,
+            match="Checkov scan timed out",
+        ),
+    ):
+        scan_checkov(tmp_path)
+
+    assert len(temporary_roots) == 1
+    assert not temporary_roots[0].exists()
+
+
+def test_checkov_rejects_non_directory_project(tmp_path: Path) -> None:
+    project_file = tmp_path / "not-a-directory.tf"
+    project_file.write_text('resource "test" {}\n')
+
+    with (
+        patch(
+            "backend.scanners.checkov.shutil.which",
+            return_value="/usr/bin/checkov",
+        ),
+        pytest.raises(RuntimeError, match="project directory does not exist"),
+    ):
+        scan_checkov(project_file)
+
+
+def test_checkov_wraps_workspace_preparation_oserror(
     tmp_path: Path,
 ) -> None:
     with (
@@ -154,15 +247,28 @@ def test_checkov_timeout_raises_runtime_error(
             return_value="/usr/bin/checkov",
         ),
         patch(
-            "backend.scanners.checkov.subprocess.run",
-            side_effect=subprocess.TimeoutExpired(
-                cmd="checkov",
-                timeout=900,
-            ),
+            "backend.scanners.checkov.shutil.copytree",
+            side_effect=PermissionError("permission denied"),
         ),
         pytest.raises(
             RuntimeError,
-            match="Checkov scan timed out",
+            match="Could not prepare isolated Checkov workspace",
         ),
     ):
         scan_checkov(tmp_path)
+
+
+def test_checkov_normalizes_single_json_object(tmp_path: Path) -> None:
+    report = {"check_type": "terraform", "results": {}}
+
+    with (
+        patch(
+            "backend.scanners.checkov.shutil.which",
+            return_value="/usr/bin/checkov",
+        ),
+        patch(
+            "backend.scanners.checkov.subprocess.run",
+            return_value=_mock_result(stdout=json.dumps(report)),
+        ),
+    ):
+        assert scan_checkov(tmp_path) == [report]

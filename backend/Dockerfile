@@ -1,4 +1,22 @@
-FROM python:3.13-slim
+
+# Etapa 1: compilar Gitleaks oficial com dependências atualizadas.
+FROM golang:1.27-alpine AS gitleaks-build
+
+RUN apk add --no-cache git
+
+WORKDIR /src/gitleaks
+RUN git init \
+    && git remote add origin https://github.com/gitleaks/gitleaks.git \
+    && git fetch --depth 1 origin 5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c \
+    && git checkout FETCH_HEAD
+
+COPY gitleaks/go.mod gitleaks/go.sum ./
+COPY gitleaks/vendor/ ./vendor/
+
+RUN GOPROXY=off CGO_ENABLED=0 go build -mod=vendor -trimpath -ldflags="-s -w" -o /out/gitleaks .
+
+# Etapa 2: imagem do backend SecureScan.
+FROM semgrep/semgrep:1.184.0
 
 WORKDIR /app
 
@@ -7,71 +25,46 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app \
     SECURESCAN_DATABASE_PATH=/data/securescan.db \
     GITLEAKS_PATH=/usr/local/bin/gitleaks \
-    SEMGREP_PATH=/opt/semgrep-venv/bin/semgrep
+    SEMGREP_PATH=/usr/bin/semgrep \
+    PATH="/opt/backend-venv/bin:${PATH}"
 
-ARG GITLEAKS_VERSION=8.30.1
-ARG SEMGREP_VERSION=1.180.0
-ARG TRIVY_VERSION=0.74.0
-ARG CHECKOV_VERSION=3.3.26
+ARG TRIVY_VERSION=0.76.2
+ARG TRIVY_BINARY_SHA256=d73380ef5e4128b14fe172849e3692addbc7d994b84a7b840b8c400985db0f6a
+ARG CHECKOV_VERSION=3.4.5
 ARG TARGETARCH
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl coreutils tar unzip \
-    && rm -rf /var/lib/apt/lists/*
+# Atualizar Alpine e instalar ferramentas do sistema.
+RUN apk update \
+    && apk upgrade \
+    && apk add --no-cache ca-certificates curl coreutils tar unzip \
+    && rm -rf /var/cache/apk/*
 
-# Gitleaks: verify the official release checksum.
-RUN set -eux; \
-    case "${TARGETARCH:-amd64}" in \
-      amd64) GITLEAKS_ARCH="x64" ;; \
-      arm64) GITLEAKS_ARCH="arm64" ;; \
-      *) echo "Unsupported architecture: ${TARGETARCH}"; exit 1 ;; \
-    esac; \
-    BASE="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"; \
-    CHECKSUMS="gitleaks_${GITLEAKS_VERSION}_checksums.txt"; \
-    ARCHIVE="gitleaks_${GITLEAKS_VERSION}_linux_${GITLEAKS_ARCH}.tar.gz"; \
-    curl -fsSLo "/tmp/${CHECKSUMS}" "${BASE}/${CHECKSUMS}"; \
-    curl -fsSLo "/tmp/${ARCHIVE}" "${BASE}/${ARCHIVE}"; \
-    cd /tmp; \
-    grep " ${ARCHIVE}$" "${CHECKSUMS}" > checksums.txt; \
-    sha256sum -c checksums.txt; \
-    tar -xzf "${ARCHIVE}" gitleaks; \
-    install -m 0755 gitleaks /usr/local/bin/gitleaks; \
-    rm -f "${CHECKSUMS}" "${ARCHIVE}" checksums.txt gitleaks
+# Instalar Gitleaks compilado na primeira etapa.
+COPY --from=gitleaks-build /out/gitleaks /usr/local/bin/gitleaks
 
-# Semgrep stays isolated from Checkov's Python dependencies.
-RUN python -m venv /opt/semgrep-venv \
-    && /opt/semgrep-venv/bin/pip install --no-cache-dir "semgrep==${SEMGREP_VERSION}" \
-    && /opt/semgrep-venv/bin/semgrep --version
+# Trivy: binário fornecido pelo contexto de build e validado por SHA256.
+COPY tools/trivy /usr/local/bin/trivy
 
-# Trivy: verify the official release checksum.
-RUN set -eux; \
-    case "${TARGETARCH:-amd64}" in \
-      amd64) TRIVY_ARCH="64bit" ;; \
-      arm64) TRIVY_ARCH="ARM64" ;; \
-      *) echo "Unsupported architecture: ${TARGETARCH}"; exit 1 ;; \
-    esac; \
-    BASE="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}"; \
-    CHECKSUMS="trivy_${TRIVY_VERSION}_checksums.txt"; \
-    ARCHIVE="trivy_${TRIVY_VERSION}_Linux-${TRIVY_ARCH}.tar.gz"; \
-    curl -fsSLo "/tmp/${CHECKSUMS}" "${BASE}/${CHECKSUMS}"; \
-    curl -fsSLo "/tmp/${ARCHIVE}" "${BASE}/${ARCHIVE}"; \
-    cd /tmp; \
-    grep " ${ARCHIVE}$" "${CHECKSUMS}" > trivy-checksums.txt; \
-    sha256sum -c trivy-checksums.txt; \
-    tar -xzf "${ARCHIVE}" trivy; \
-    install -m 0755 trivy /usr/local/bin/trivy; \
-    rm -f "${CHECKSUMS}" "${ARCHIVE}" trivy-checksums.txt trivy; \
-    trivy --version
+RUN echo "${TRIVY_BINARY_SHA256}  /usr/local/bin/trivy" | sha256sum -c - \
+    && chmod 0755 /usr/local/bin/trivy \
+    && trivy --version
 
+# Backend e Checkov num ambiente Python isolado do Semgrep.
 COPY backend/requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt \
-    && pip install --no-cache-dir "checkov==${CHECKOV_VERSION}" \
-    && checkov --version
+
+RUN python -m venv /opt/backend-venv \
+    && /opt/backend-venv/bin/pip install --no-cache-dir --upgrade pip \
+    && /opt/backend-venv/bin/pip install --no-cache-dir -r requirements.txt \
+    && /opt/backend-venv/bin/pip install --no-cache-dir "checkov==${CHECKOV_VERSION}" \
+    && /opt/backend-venv/bin/pip check \
+    && /opt/backend-venv/bin/checkov --version \
+    && /opt/backend-venv/bin/uvicorn --version \
+    && semgrep --version
 
 COPY backend ./backend
 
-RUN useradd --create-home --shell /usr/sbin/nologin appuser \
+# Utilizador sem privilégios e diretório persistente.
+RUN adduser -D -u 10001 appuser \
     && mkdir -p /data \
     && chown -R appuser:appuser /app /data
 
