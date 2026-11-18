@@ -2,6 +2,7 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { proxyApiRequest } from "./lib/api-proxy";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -52,45 +53,6 @@ function isH3SwallowedErrorBody(body: string): boolean {
 }
 
 // Forward API requests to the FastAPI service on the Docker network.
-async function proxyApiRequest(request: Request): Promise<Response> {
-  const url = new URL(request.url);
-
-  // FastAPI exposes health at /health, not /api/health.
-  const backendPath = url.pathname === "/api/health" ? "/health" : url.pathname;
-
-  const targetUrl = new URL(`${backendPath}${url.search}`, "http://backend:8000");
-
-  const headers = new Headers(request.headers);
-  headers.delete("host");
-
-  const hasBody = request.method !== "GET" && request.method !== "HEAD" && request.body !== null;
-
-  try {
-    const response = await fetch(targetUrl, {
-      method: request.method,
-      headers,
-      redirect: "manual",
-      ...(hasBody && request.body
-        ? {
-            body: request.body,
-            duplex: "half" as const,
-          }
-        : {}),
-    });
-
-    // Preserve the upstream status, headers, and response body.
-    return new Response(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: response.headers,
-    });
-  } catch (error) {
-    console.error("Backend API proxy failed:", error);
-
-    return Response.json({ detail: "Backend API is currently unavailable." }, { status: 502 });
-  }
-}
-
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown): Promise<Response> {
     const url = new URL(request.url);

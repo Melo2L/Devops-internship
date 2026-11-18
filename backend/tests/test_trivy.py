@@ -48,11 +48,13 @@ def test_trivy_parses_valid_json(
                 stdout=json.dumps(report),
                 stderr="",
             ),
-        ),
+        ) as run,
     ):
         result = scan_trivy(project)
 
     assert result == report
+    command = run.call_args.args[0]
+    assert "--ignorefile" not in command
 
 
 def test_trivy_rejects_invalid_json(

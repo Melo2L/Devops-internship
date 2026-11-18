@@ -153,3 +153,10 @@ crash.*.log
 # Grafana local backups
 monitoring/grafana/backups/
 terraform/main.tf.cpu-backup
+
+# Temporary local backups
+/compose.yaml.pre-readonly-backup
+/backend/Dockerfile.backup.push-fix
+
+# Trivy binary is supplied locally and must not be committed.
+/tools/trivy

@@ -6,8 +6,17 @@ services:
     image: ghcr.io/melo2l/devops-internship-backend:${SECURESCAN_IMAGE_TAG:-latest}
     ports:
       - "8000:8000"
+    environment:
+      HOME: /tmp/semgrep-home
+      XDG_CONFIG_HOME: /tmp/semgrep-config
+      GIT_CONFIG_GLOBAL: /tmp/semgrep-home/.gitconfig
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=512m,mode=1777
+      - /home/appuser/.cache:rw,nosuid,nodev,size=512m,uid=10001,gid=10001
     volumes:
       - securescan_data:/data
+      - trivy_cache:/home/appuser/.cache/trivy
     restart: unless-stopped
     healthcheck:
       test:
@@ -31,6 +40,13 @@ services:
       SECURESCAN_API_INTERNAL_URL: http://backend:8000/api
     ports:
       - "3000:3000"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
     depends_on:
       backend:
@@ -85,3 +101,6 @@ volumes:
   securescan_data:
   prometheus_data:
   grafana_data:
+  trivy_cache:
+    external: true
+    name: securescan-trivy-cache
