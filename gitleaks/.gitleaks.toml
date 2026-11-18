@@ -9,6 +9,7 @@ useDefault = true
 [allowlist]
 paths = [
   '''(^|/)cmd/generate/config/rules''',
+  '''^gitleaks/''',
   '''.*test\.go''',
   '''testdata'''
 ]
