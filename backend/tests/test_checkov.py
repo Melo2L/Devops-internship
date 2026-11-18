@@ -56,6 +56,9 @@ def test_checkov_parses_valid_json_and_uses_isolated_workspace(
     )
     (tmp_path / "main.tf").write_text('resource "test" {}\n')
     (tmp_path / ".gitignore").write_text("*.tfstate\n")
+    nested_dir = tmp_path / "nested"
+    nested_dir.mkdir()
+    (nested_dir / "module.tf").write_text('resource "nested" {}\n')
 
     temporary_roots: list[Path] = []
 
@@ -68,6 +71,7 @@ def test_checkov_parses_valid_json_and_uses_isolated_workspace(
         assert not (scan_directory / ".checkov.yml").exists()
         assert (scan_directory / "main.tf").is_file()
         assert (scan_directory / ".gitignore").is_file()
+        assert (scan_directory / "nested" / "module.tf").is_file()
 
         assert Path(kwargs["cwd"]).is_dir()
         assert Path(kwargs["cwd"]) != tmp_path.resolve()
@@ -218,3 +222,53 @@ def test_checkov_timeout_raises_runtime_error_and_cleans_workspace(
 
     assert len(temporary_roots) == 1
     assert not temporary_roots[0].exists()
+
+
+def test_checkov_rejects_non_directory_project(tmp_path: Path) -> None:
+    project_file = tmp_path / "not-a-directory.tf"
+    project_file.write_text('resource "test" {}\n')
+
+    with (
+        patch(
+            "backend.scanners.checkov.shutil.which",
+            return_value="/usr/bin/checkov",
+        ),
+        pytest.raises(RuntimeError, match="project directory does not exist"),
+    ):
+        scan_checkov(project_file)
+
+
+def test_checkov_wraps_workspace_preparation_oserror(
+    tmp_path: Path,
+) -> None:
+    with (
+        patch(
+            "backend.scanners.checkov.shutil.which",
+            return_value="/usr/bin/checkov",
+        ),
+        patch(
+            "backend.scanners.checkov.shutil.copytree",
+            side_effect=PermissionError("permission denied"),
+        ),
+        pytest.raises(
+            RuntimeError,
+            match="Could not prepare isolated Checkov workspace",
+        ),
+    ):
+        scan_checkov(tmp_path)
+
+
+def test_checkov_normalizes_single_json_object(tmp_path: Path) -> None:
+    report = {"check_type": "terraform", "results": {}}
+
+    with (
+        patch(
+            "backend.scanners.checkov.shutil.which",
+            return_value="/usr/bin/checkov",
+        ),
+        patch(
+            "backend.scanners.checkov.subprocess.run",
+            return_value=_mock_result(stdout=json.dumps(report)),
+        ),
+    ):
+        assert scan_checkov(tmp_path) == [report]
