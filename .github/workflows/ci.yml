@@ -270,6 +270,7 @@ jobs:
         with:
           scan-type: image
           image-ref: ghcr.io/melo2l/devops-internship-backend:latest
+          skip-files: '**/pip/_vendor/bom.cdx.json'
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           format: table
