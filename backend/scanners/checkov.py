@@ -6,7 +6,6 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-
 UNTRUSTED_CHECKOV_CONFIGS = {".checkov.yaml", ".checkov.yml"}
 
 

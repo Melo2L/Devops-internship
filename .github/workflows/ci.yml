@@ -153,7 +153,7 @@ jobs:
           curl -fsSL "${BASE}/${ARCHIVE}" -o "/tmp/${ARCHIVE}"
           grep " ${ARCHIVE}$" /tmp/trivy_checksums.txt > /tmp/trivy_archive_checksum.txt
           echo "${TRIVY_ARCHIVE_SHA256}  /tmp/${ARCHIVE}" | sha256sum -c -
-          sha256sum -c /tmp/trivy_archive_checksum.txt
+          (cd /tmp && sha256sum -c /tmp/trivy_archive_checksum.txt)
 
           tar -xzf "/tmp/${ARCHIVE}" -C /tmp trivy
           sudo install -m 0755 /tmp/trivy /usr/local/bin/trivy
@@ -242,7 +242,7 @@ jobs:
           curl -fsSL "${BASE}/${ARCHIVE}" -o "/tmp/${ARCHIVE}"
           grep " ${ARCHIVE}$" /tmp/trivy_checksums.txt > /tmp/trivy_archive_checksum.txt
           echo "${TRIVY_ARCHIVE_SHA256}  /tmp/${ARCHIVE}" | sha256sum -c -
-          sha256sum -c /tmp/trivy_archive_checksum.txt
+          (cd /tmp && sha256sum -c /tmp/trivy_archive_checksum.txt)
 
           tar -xzf "/tmp/${ARCHIVE}" -C /tmp trivy
           install -m 0755 /tmp/trivy tools/trivy
@@ -311,7 +311,7 @@ jobs:
           curl -fsSL "${BASE}/${ARCHIVE}" -o "/tmp/${ARCHIVE}"
           grep " ${ARCHIVE}$" /tmp/trivy_checksums.txt > /tmp/trivy_archive_checksum.txt
           echo "${TRIVY_ARCHIVE_SHA256}  /tmp/${ARCHIVE}" | sha256sum -c -
-          sha256sum -c /tmp/trivy_archive_checksum.txt
+          (cd /tmp && sha256sum -c /tmp/trivy_archive_checksum.txt)
 
           tar -xzf "/tmp/${ARCHIVE}" -C /tmp trivy
           install -m 0755 /tmp/trivy tools/trivy
