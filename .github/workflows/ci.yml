@@ -198,6 +198,32 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      - name: Download and verify Trivy binary
+        env:
+          TRIVY_VERSION: "0.76.2"
+          TRIVY_ARCHIVE_SHA256: "bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf"
+          TRIVY_CHECKSUMS_SHA256: "802e4ac1418ed967cd3c4b901f4f71ca00b7363ede67778665a22d9f13f58c83"
+        run: |
+          set -euo pipefail
+
+          ARCHIVE="trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          BASE="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}"
+
+          mkdir -p tools
+          curl -fsSL "${BASE}/trivy_${TRIVY_VERSION}_checksums.txt" -o /tmp/trivy_checksums.txt
+          echo "${TRIVY_CHECKSUMS_SHA256}  /tmp/trivy_checksums.txt" | sha256sum -c -
+
+          curl -fsSL "${BASE}/${ARCHIVE}" -o "/tmp/${ARCHIVE}"
+          grep " ${ARCHIVE}$" /tmp/trivy_checksums.txt > /tmp/trivy_archive_checksum.txt
+          echo "${TRIVY_ARCHIVE_SHA256}  /tmp/${ARCHIVE}" | sha256sum -c -
+          sha256sum -c /tmp/trivy_archive_checksum.txt
+
+          tar -xzf "/tmp/${ARCHIVE}" -C /tmp trivy
+          install -m 0755 /tmp/trivy tools/trivy
+
+          echo "TRIVY_BINARY_SHA256=$(sha256sum tools/trivy | cut -d ' ' -f 1)" >> "$GITHUB_ENV"
+          ./tools/trivy --version
+
       - name: Build frontend and backend images
         env:
           GRAFANA_ADMIN_PASSWORD: "ci-test-only-password"
@@ -240,6 +266,32 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+
+      - name: Download and verify Trivy binary
+        env:
+          TRIVY_VERSION: "0.76.2"
+          TRIVY_ARCHIVE_SHA256: "bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf"
+          TRIVY_CHECKSUMS_SHA256: "802e4ac1418ed967cd3c4b901f4f71ca00b7363ede67778665a22d9f13f58c83"
+        run: |
+          set -euo pipefail
+
+          ARCHIVE="trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          BASE="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}"
+
+          mkdir -p tools
+          curl -fsSL "${BASE}/trivy_${TRIVY_VERSION}_checksums.txt" -o /tmp/trivy_checksums.txt
+          echo "${TRIVY_CHECKSUMS_SHA256}  /tmp/trivy_checksums.txt" | sha256sum -c -
+
+          curl -fsSL "${BASE}/${ARCHIVE}" -o "/tmp/${ARCHIVE}"
+          grep " ${ARCHIVE}$" /tmp/trivy_checksums.txt > /tmp/trivy_archive_checksum.txt
+          echo "${TRIVY_ARCHIVE_SHA256}  /tmp/${ARCHIVE}" | sha256sum -c -
+          sha256sum -c /tmp/trivy_archive_checksum.txt
+
+          tar -xzf "/tmp/${ARCHIVE}" -C /tmp trivy
+          install -m 0755 /tmp/trivy tools/trivy
+
+          echo "TRIVY_BINARY_SHA256=$(sha256sum tools/trivy | cut -d ' ' -f 1)" >> "$GITHUB_ENV"
+          ./tools/trivy --version
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -284,6 +336,8 @@ jobs:
           context: .
           file: ./backend/Dockerfile
           push: true
+          build-args: |
+            TRIVY_BINARY_SHA256=${{ env.TRIVY_BINARY_SHA256 }}
           tags: ${{ steps.meta-backend.outputs.tags }}
           labels: ${{ steps.meta-backend.outputs.labels }}
 

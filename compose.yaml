@@ -3,6 +3,8 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+      args:
+        TRIVY_BINARY_SHA256: ${TRIVY_BINARY_SHA256:-d73380ef5e4128b14fe172849e3692addbc7d994b84a7b840b8c400985db0f6a}
     image: ghcr.io/melo2l/devops-internship-backend:${SECURESCAN_IMAGE_TAG:-latest}
     ports:
       - "8000:8000"

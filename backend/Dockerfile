@@ -29,6 +29,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH="/opt/backend-venv/bin:${PATH}"
 
 ARG TRIVY_VERSION=0.76.2
+ARG TRIVY_BINARY_SHA256=d73380ef5e4128b14fe172849e3692addbc7d994b84a7b840b8c400985db0f6a
 ARG CHECKOV_VERSION=3.4.5
 ARG TARGETARCH
 
@@ -41,10 +42,10 @@ RUN apk update \
 # Instalar Gitleaks compilado na primeira etapa.
 COPY --from=gitleaks-build /out/gitleaks /usr/local/bin/gitleaks
 
-# Trivy: binário local com SHA256 previamente validado.
+# Trivy: binário fornecido pelo contexto de build e validado por SHA256.
 COPY tools/trivy /usr/local/bin/trivy
 
-RUN echo "d73380ef5e4128b14fe172849e3692addbc7d994b84a7b840b8c400985db0f6a  /usr/local/bin/trivy" | sha256sum -c - \
+RUN echo "${TRIVY_BINARY_SHA256}  /usr/local/bin/trivy" | sha256sum -c - \
     && chmod 0755 /usr/local/bin/trivy \
     && trivy --version
 
