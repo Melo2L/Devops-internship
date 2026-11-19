@@ -25,6 +25,8 @@ def scan_trivy(project_path: Path) -> dict[str, Any]:
                 "--scanners",
                 "vuln,misconfig",
                 "--quiet",
+                "--cache-dir",
+                "/home/appuser/.cache/trivy",
                 str(project_path.resolve()),
             ],
             capture_output=True,
