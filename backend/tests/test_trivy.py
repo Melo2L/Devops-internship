@@ -55,6 +55,8 @@ def test_trivy_parses_valid_json(
     assert result == report
     command = run.call_args.args[0]
     assert "--ignorefile" not in command
+    cache_dir_index = command.index("--cache-dir")
+    assert command[cache_dir_index + 1] == "/home/appuser/.cache/trivy"
 
 
 def test_trivy_rejects_invalid_json(
