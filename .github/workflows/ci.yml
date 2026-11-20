@@ -247,7 +247,7 @@ jobs:
           BUILD_INFO="$(go version -m tools/trivy)"
           printf '%s\n' "$BUILD_INFO"
           grep -q 'go1.27.4' <<< "$BUILD_INFO"
-          grep -q "mod github.com/aquasecurity/trivy v${TRIVY_VERSION}" <<< "$BUILD_INFO"
+          awk -v version="v${TRIVY_VERSION}" '$1 == "mod" && $2 == "github.com/aquasecurity/trivy" && $3 == version { found=1 } END { exit !found }' <<< "$BUILD_INFO"
 
           ./tools/trivy --version
           TRIVY_SHA256="$(sha256sum tools/trivy | cut -d ' ' -f 1)"
@@ -324,7 +324,7 @@ jobs:
           BUILD_INFO="$(go version -m tools/trivy)"
           printf '%s\n' "$BUILD_INFO"
           grep -q 'go1.27.4' <<< "$BUILD_INFO"
-          grep -q "mod github.com/aquasecurity/trivy v${TRIVY_VERSION}" <<< "$BUILD_INFO"
+          awk -v version="v${TRIVY_VERSION}" '$1 == "mod" && $2 == "github.com/aquasecurity/trivy" && $3 == version { found=1 } END { exit !found }' <<< "$BUILD_INFO"
 
           ./tools/trivy --version
           TRIVY_SHA256="$(sha256sum tools/trivy | cut -d ' ' -f 1)"
