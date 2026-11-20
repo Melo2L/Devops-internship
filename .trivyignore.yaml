@@ -1,0 +1,10 @@
+vulnerabilities:
+  - id: CVE-2026-115563
+    paths:
+      - "usr/lib/python3.12/site-packages/mcp-1.29.0.dist-info/METADATA"
+    expired_at: 2027-02-18
+    statement: >-
+      Not applicable to SecureScan's current usage. Semgrep is invoked as a
+      static-analysis CLI scanner, not as an MCP HTTP OAuth client. The
+      upstream advisory explicitly excludes MCP servers. Reassess if MCP
+      OAuth client functionality is introduced or at expiry.
