@@ -224,31 +224,35 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Download and verify Trivy binary
+      - name: Set up Go 1.27.4
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.27.4"
+          cache: false
+
+      - name: Build and verify Trivy with patched Go
+        id: build-trivy
         env:
           TRIVY_VERSION: "0.76.2"
-          TRIVY_ARCHIVE_SHA256: "bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf"
-          TRIVY_CHECKSUMS_SHA256: "802e4ac1418ed967cd3c4b901f4f71ca00b7363ede67778665a22d9f13f58c83"
         run: |
           set -euo pipefail
 
-          ARCHIVE="trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
-          BASE="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}"
-
           mkdir -p tools
-          curl -fsSL "${BASE}/trivy_${TRIVY_VERSION}_checksums.txt" -o /tmp/trivy_checksums.txt
-          echo "${TRIVY_CHECKSUMS_SHA256}  /tmp/trivy_checksums.txt" | sha256sum -c -
+          CGO_ENABLED=0 GOTOOLCHAIN=local GOBIN="${GITHUB_WORKSPACE}/tools" \
+            go install -ldflags="-s -w -extldflags '-static' -X github.com/aquasecurity/trivy/pkg/version/app.ver=${TRIVY_VERSION}" \
+              "github.com/aquasecurity/trivy/cmd/trivy@v${TRIVY_VERSION}"
 
-          curl -fsSL "${BASE}/${ARCHIVE}" -o "/tmp/${ARCHIVE}"
-          grep " ${ARCHIVE}$" /tmp/trivy_checksums.txt > /tmp/trivy_archive_checksum.txt
-          echo "${TRIVY_ARCHIVE_SHA256}  /tmp/${ARCHIVE}" | sha256sum -c -
-          (cd /tmp && sha256sum -c /tmp/trivy_archive_checksum.txt)
+          test -x tools/trivy
 
-          tar -xzf "/tmp/${ARCHIVE}" -C /tmp trivy
-          install -m 0755 /tmp/trivy tools/trivy
+          BUILD_INFO="$(go version -m tools/trivy)"
+          printf '%s\n' "$BUILD_INFO"
+          grep -q 'go1.27.4' <<< "$BUILD_INFO"
+          awk -v version="v${TRIVY_VERSION}" '$1 == "mod" && $2 == "github.com/aquasecurity/trivy" && $3 == version { found=1 } END { exit !found }' <<< "$BUILD_INFO"
 
-          echo "TRIVY_BINARY_SHA256=$(sha256sum tools/trivy | cut -d ' ' -f 1)" >> "$GITHUB_ENV"
           ./tools/trivy --version
+          TRIVY_SHA256="$(sha256sum tools/trivy | cut -d ' ' -f 1)"
+          echo "TRIVY_BINARY_SHA256=${TRIVY_SHA256}" >> "$GITHUB_ENV"
+          echo "binary_sha256=${TRIVY_SHA256}" >> "$GITHUB_OUTPUT"
 
       - name: Build frontend and backend images
         env:
@@ -258,6 +262,7 @@ jobs:
       - name: Scan frontend Docker image with Trivy
         uses: aquasecurity/trivy-action@v0.36.0
         with:
+          version: "v0.76.2"
           scan-type: image
           image-ref: ghcr.io/melo2l/devops-internship-frontend:latest
           severity: HIGH,CRITICAL
@@ -268,6 +273,8 @@ jobs:
       - name: Scan backend Docker image with Trivy
         uses: aquasecurity/trivy-action@v0.36.0
         with:
+          version: "v0.76.2"
+          trivyignores: .trivyignore.yaml
           scan-type: image
           image-ref: ghcr.io/melo2l/devops-internship-backend:latest
           skip-files: '**/pip/_vendor/bom.cdx.json'
@@ -294,31 +301,35 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Download and verify Trivy binary
+      - name: Set up Go 1.27.4
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.27.4"
+          cache: false
+
+      - name: Build and verify Trivy with patched Go
+        id: build-trivy
         env:
           TRIVY_VERSION: "0.76.2"
-          TRIVY_ARCHIVE_SHA256: "bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf"
-          TRIVY_CHECKSUMS_SHA256: "802e4ac1418ed967cd3c4b901f4f71ca00b7363ede67778665a22d9f13f58c83"
         run: |
           set -euo pipefail
 
-          ARCHIVE="trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
-          BASE="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}"
-
           mkdir -p tools
-          curl -fsSL "${BASE}/trivy_${TRIVY_VERSION}_checksums.txt" -o /tmp/trivy_checksums.txt
-          echo "${TRIVY_CHECKSUMS_SHA256}  /tmp/trivy_checksums.txt" | sha256sum -c -
+          CGO_ENABLED=0 GOTOOLCHAIN=local GOBIN="${GITHUB_WORKSPACE}/tools" \
+            go install -ldflags="-s -w -extldflags '-static' -X github.com/aquasecurity/trivy/pkg/version/app.ver=${TRIVY_VERSION}" \
+              "github.com/aquasecurity/trivy/cmd/trivy@v${TRIVY_VERSION}"
 
-          curl -fsSL "${BASE}/${ARCHIVE}" -o "/tmp/${ARCHIVE}"
-          grep " ${ARCHIVE}$" /tmp/trivy_checksums.txt > /tmp/trivy_archive_checksum.txt
-          echo "${TRIVY_ARCHIVE_SHA256}  /tmp/${ARCHIVE}" | sha256sum -c -
-          (cd /tmp && sha256sum -c /tmp/trivy_archive_checksum.txt)
+          test -x tools/trivy
 
-          tar -xzf "/tmp/${ARCHIVE}" -C /tmp trivy
-          install -m 0755 /tmp/trivy tools/trivy
+          BUILD_INFO="$(go version -m tools/trivy)"
+          printf '%s\n' "$BUILD_INFO"
+          grep -q 'go1.27.4' <<< "$BUILD_INFO"
+          awk -v version="v${TRIVY_VERSION}" '$1 == "mod" && $2 == "github.com/aquasecurity/trivy" && $3 == version { found=1 } END { exit !found }' <<< "$BUILD_INFO"
 
-          echo "TRIVY_BINARY_SHA256=$(sha256sum tools/trivy | cut -d ' ' -f 1)" >> "$GITHUB_ENV"
           ./tools/trivy --version
+          TRIVY_SHA256="$(sha256sum tools/trivy | cut -d ' ' -f 1)"
+          echo "TRIVY_BINARY_SHA256=${TRIVY_SHA256}" >> "$GITHUB_ENV"
+          echo "binary_sha256=${TRIVY_SHA256}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -364,7 +375,7 @@ jobs:
           file: ./backend/Dockerfile
           push: true
           build-args: |
-            TRIVY_BINARY_SHA256=${{ env.TRIVY_BINARY_SHA256 }}
+            TRIVY_BINARY_SHA256=${{ steps.build-trivy.outputs.binary_sha256 }}
           tags: ${{ steps.meta-backend.outputs.tags }}
           labels: ${{ steps.meta-backend.outputs.labels }}
 
