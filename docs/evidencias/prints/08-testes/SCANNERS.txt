@@ -1,0 +1,573 @@
+tests = [
+    (8000, "284ff9f9-cb7b-45f5-a18b-76c6dcc9ca26"),
+    (18000, "10e2a456-a513-4f2f-b47f-4ec1b7a23303"),
+]
+
+def get(url):
+    with urllib.request.urlopen(url, timeout=15) as r:
+        return json.load(r)
+
+for port, scan_id in tests:
+    base = f"http://127.0.0.1:{port}/api/scans/{scan_id}"
+
+    print(f"\n{'='*65}")
+    print(f"PORTA {port} | SCAN {scan_id}")
+    print("="*65)
+
+    try:
+        scan = get(base)
+        print("SCAN:")
+        print(json.dumps(scan, indent=2, ensure_ascii=False))
+
+        findings = get(base + "/findings")
+        if isinstance(findings, dict):
+            findings = findings.get("findings", findings.get("items", []))
+
+        print("\nFINDINGS:", len(findings))
+        for f in findings:
+            print(json.dumps({
+                k: f.get(k)
+                for k in (
+                    "id", "title", "name", "severity",
+                    "scanner", "tool", "rule_id",
+                    "file_path", "status", "category"
+                )
+                if k in f
+            }, ensure_ascii=False))
+    except Exception as e:
+        print("Erro:", repr(e))
+PY
+
+=================================================================
+PORTA 8000 | SCAN 284ff9f9-cb7b-45f5-a18b-76c6dcc9ca26
+=================================================================
+SCAN:
+{
+  "id": "284ff9f9-cb7b-45f5-a18b-76c6dcc9ca26",
+  "filename": "test-vulnerable-project.zip",
+  "created_at": "2026-11-19T01:20:29.243545+00:00",
+  "status": "completed",
+  "size_bytes": 213,
+  "files_detected": 1,
+  "files_extracted": 1,
+  "analysis": {
+    "total_files": 1,
+    "languages": {
+      "Python": 1
+    },
+    "technologies": [],
+    "detected_files": []
+  },
+  "scan_plan": {
+    "enabled": [
+      "semgrep",
+      "gitleaks",
+      "trivy"
+    ],
+    "skipped": [
+      "checkov"
+    ]
+  },
+  "scans": [
+    {
+      "scanner": "gitleaks",
+      "status": "completed",
+      "error": null,
+      "findings": []
+    },
+    {
+      "scanner": "semgrep",
+      "status": "completed",
+      "error": null,
+      "findings": [
+        {
+          "scanner": "semgrep",
+          "category": "Source Code",
+          "severity": "Medium",
+          "confidence": null,
+          "title": "subprocess com shell=True pode permitir command injection.",
+          "description": "Semgrep detected a potential source-code security issue using rule 'backend.rules.python.security.subprocess-shell-true'.",
+          "file": "app.py",
+          "line": 4,
+          "status": "Open",
+          "remediation": "Review the affected source code and consult the Semgrep rule guidance. Validate the finding, apply the appropriate fix, and add a regression test where practical.",
+          "rule_id": "backend.rules.python.security.subprocess-shell-true",
+          "fingerprint": "28f594128188e78e0dda283d6ee2e5b16678ecf5f7ea088cbfff4e8ca823b1d6"
+        }
+      ]
+    },
+    {
+      "scanner": "trivy",
+      "status": "completed",
+      "error": null,
+      "findings": []
+    }
+  ],
+  "message": "Project analysis completed successfully.",
+  "findings_count": 1
+}
+
+FINDINGS: 1
+{"id": "284ff9f9-cb7b-45f5-a18b-76c6dcc9ca26:28f594128188e78e0dda283d6ee2e5b16678ecf5f7ea088cbfff4e8ca823b1d6", "title": "subprocess com shell=True pode permitir command injection.", "severity": "Medium", "scanner": "semgrep", "rule_id": "backend.rules.python.security.subprocess-shell-true", "status": "resolved", "category": "Source Code"}
+
+=================================================================
+PORTA 18000 | SCAN 10e2a456-a513-4f2f-b47f-4ec1b7a23303
+=================================================================
+SCAN:
+{
+  "id": "10e2a456-a513-4f2f-b47f-4ec1b7a23303",
+  "filename": "securescan-final-integration.zip",
+  "created_at": "2026-11-18T17:52:06.745769+00:00",
+  "status": "completed",
+  "size_bytes": 876,
+  "files_detected": 4,
+  "files_extracted": 4,
+  "analysis": {
+    "total_files": 4,
+    "languages": {
+      "Python": 1
+    },
+    "technologies": [
+      "Docker",
+      "Python dependencies",
+      "Terraform"
+    ],
+    "detected_files": [
+      "Dockerfile",
+      "requirements.txt"
+    ]
+  },
+  "scan_plan": {
+    "enabled": [
+      "semgrep",
+      "gitleaks",
+      "trivy",
+      "checkov"
+    ],
+    "skipped": []
+  },
+  "scans": [
+    {
+      "scanner": "gitleaks",
+      "status": "completed",
+      "error": null,
+      "findings": []
+    },
+    {
+      "scanner": "semgrep",
+      "status": "completed",
+      "error": null,
+      "findings": [
+        {
+          "scanner": "semgrep",
+          "category": "Source Code",
+          "severity": "Medium",
+          "confidence": null,
+          "title": "subprocess com shell=True pode permitir command injection.",
+          "description": "Semgrep detected a potential source-code security issue using rule 'backend.rules.python.security.subprocess-shell-true'.",
+          "file": "app.py",
+          "line": 5,
+          "status": "Open",
+          "remediation": "Review the affected source code and consult the Semgrep rule guidance. Validate the finding, apply the appropriate fix, and add a regression test where practical.",
+          "rule_id": "backend.rules.python.security.subprocess-shell-true",
+          "fingerprint": "07557f0d657a0619d47e6573e52a24a8e821adeff47211c69b6d1798648f06e6"
+        },
+        {
+          "scanner": "semgrep",
+          "category": "Source Code",
+          "severity": "High",
+          "confidence": null,
+          "title": "Uso de eval() pode permitir execução de código não confiável.",
+          "description": "Semgrep detected a potential source-code security issue using rule 'backend.rules.python.security.eval'.",
+          "file": "app.py",
+          "line": 8,
+          "status": "Open",
+          "remediation": "Review the affected source code and consult the Semgrep rule guidance. Validate the finding, apply the appropriate fix, and add a regression test where practical.",
+          "rule_id": "backend.rules.python.security.eval",
+          "fingerprint": "53974dfd0f08d58eaeb558d47bba90bb04208342b426f20657a2d36ad2a57253"
+        }
+      ]
+    },
+    {
+      "scanner": "trivy",
+      "status": "completed",
+      "error": null,
+      "findings": [
+        {
+          "scanner": "trivy",
+          "category": "Dependency",
+          "severity": "Medium",
+          "confidence": null,
+          "title": "requests: subsequent requests to the same host ignore cert verification",
+          "description": "Requests is a HTTP library. Prior to 2.32.0, when making requests through a Requests `Session`, if the first request is made with `verify=False` to disable cert verification, all subsequent requests to the same host will continue to ignore cert verification regardless of changes to the value of `verify`. This behavior will continue for the lifecycle of the connection in the connection pool. This vulnerability is fixed in 2.32.0.",
+          "file": "requirements.txt",
+          "line": null,
+          "status": "Open",
+          "remediation": "Upgrade to a fixed version: 2.32.0.",
+          "rule_id": "CVE-2024-35195",
+          "fingerprint": "cf89f4b2ce6dd11a35bb60deb9536cc1fda3b95ece211594b9e8d04d10d5d7a1"
+        },
+        {
+          "scanner": "trivy",
+          "category": "Dependency",
+          "severity": "Medium",
+          "confidence": null,
+          "title": "requests: Requests vulnerable to .netrc credentials leak via malicious URLs",
+          "description": "Requests is a HTTP library. Due to a URL parsing issue, Requests releases prior to 2.32.4 may leak .netrc credentials to third parties for specific maliciously-crafted URLs. Users should upgrade to version 2.32.4 to receive a fix. For older versions of Requests, use of the .netrc file can be disabled with `trust_env=False` on one's Requests Session.",
+          "file": "requirements.txt",
+          "line": null,
+          "status": "Open",
+          "remediation": "Upgrade to a fixed version: 2.32.4.",
+          "rule_id": "CVE-2024-47081",
+          "fingerprint": "c461850b6f39bc141a6221017ca79ed79e15666b8594d698112e62d0adb9c118"
+        },
+        {
+          "scanner": "trivy",
+          "category": "Dependency",
+          "severity": "Medium",
+          "confidence": null,
+          "title": "requests: Requests: Security bypass due to predictable temporary file creation",
+          "description": "Requests is a HTTP library. Prior to version 2.33.0, the `requests.utils.extract_zipped_paths()` utility function uses a predictable filename when extracting files from zip archives into the system temporary directory. If the target file already exists, it is reused without validation. A local attacker with write access to the temp directory could pre-create a malicious file that would be loaded in place of the legitimate one. Standard usage of the Requests library is not affected by this vulnerability. Only applications that call `extract_zipped_paths()` directly are impacted. Starting in version 2.33.0, the library extracts files to a non-deterministic location. If developers are unable to upgrade, they can set `TMPDIR` in their environment to a directory with restricted write access.",
+          "file": "requirements.txt",
+          "line": null,
+          "status": "Open",
+          "remediation": "Upgrade to a fixed version: 2.33.0.",
+          "rule_id": "CVE-2026-25645",
+          "fingerprint": "84e46fc480701d4d7b6fe238e8ac5b724cdf3d1f645c06b70b9e615f4fa08a1b"
+        },
+        {
+          "scanner": "trivy",
+          "category": "Configuration",
+          "severity": "High",
+          "confidence": null,
+          "title": "Image user should not be 'root'",
+          "description": "Running containers with 'root' user can lead to a container escape situation. It is a best practice to run containers as non-root users, which can be done by adding a 'USER' statement to the Dockerfile.",
+          "file": "Dockerfile",
+          "line": 2,
+          "status": "Open",
+          "remediation": "Add 'USER <non root user name>' line to the Dockerfile",
+          "rule_id": "DS-0002",
+          "fingerprint": "a51cdcc96978450774bf2bde218d79ffd2f4944d7a7917d0a40e11ebded8202f"
+        },
+        {
+          "scanner": "trivy",
+          "category": "Configuration",
+          "severity": "High",
+          "confidence": null,
+          "title": "'RUN <package-manager> update' instruction alone",
+          "description": "The instruction 'RUN <package-manager> update' should always be followed by '<package-manager> install' in the same RUN statement.",
+          "file": "Dockerfile",
+          "line": 3,
+          "status": "Open",
+          "remediation": "Combine '<package-manager> update' and '<package-manager> install' instructions to single one",
+          "rule_id": "DS-0017",
+          "fingerprint": "d16c7421728ad3fbc361831c9bb612eaf7b8f3673ecf10121e45d8ac6cde5aa7"
+        },
+        {
+          "scanner": "trivy",
+          "category": "Configuration",
+          "severity": "Low",
+          "confidence": null,
+          "title": "No HEALTHCHECK defined",
+          "description": "You should add HEALTHCHECK instruction in your docker container images to perform the health check on running containers.",
+          "file": "Dockerfile",
+          "line": null,
+          "status": "Open",
+          "remediation": "Add HEALTHCHECK instruction in Dockerfile",
+          "rule_id": "DS-0026",
+          "fingerprint": "353d4d8f48537cdcf26744893e32f642302ef41b007e23cb3635380f00e9acf3"
+        },
+        {
+          "scanner": "trivy",
+          "category": "Configuration",
+          "severity": "High",
+          "confidence": null,
+          "title": "S3 Access block should block public ACL",
+          "description": "S3 buckets should block public ACLs on buckets and any objects they contain. By blocking, PUTs with fail if the object has any public ACL a.\n",
+          "file": "main.tf",
+          "line": 1,
+          "status": "Open",
+          "remediation": "Enable blocking any PUT calls with a public ACL specified",
+          "rule_id": "AWS-0086",
+          "fingerprint": "8f04c9a9b61a8f07c633c39fbbacc10190f2b1036b1f61ee2bee4f12235bbc15"
+        },
+        {
+          "scanner": "trivy",
+          "category": "Configuration",
+          "severity": "High",
+          "confidence": null,
+          "title": "S3 Access block should block public policy",
+          "description": "S3 bucket policy should have block public policy to prevent users from putting a policy that enable public access.\n",
+          "file": "main.tf",
+          "line": 1,
+          "status": "Open",
+          "remediation": "Prevent policies that allow public access being PUT",
+          "rule_id": "AWS-0087",
+          "fingerprint": "dea918e35081879f1f8911b4df0c351e64b6257d8b6aff28bc39425be59a858b"
+        },
+        {
+          "scanner": "trivy",
+          "category": "Configuration",
+          "severity": "Low",
+          "confidence": null,
+          "title": "S3 Bucket Logging",
+          "description": "Ensures S3 bucket logging is enabled for S3 buckets",
+          "file": "main.tf",
+          "line": 1,
+          "status": "Open",
+          "remediation": "Add a logging block to the resource to enable access logging",
+          "rule_id": "AWS-0089",
+          "fingerprint": "dd079db300c77b2e5af832136456ba8e905aa8fd52b0528727729ae80bbb4246"
+        },
+        {
+          "scanner": "trivy",
+          "category": "Configuration",
+          "severity": "Medium",
+          "confidence": null,
+          "title": "S3 Data should be versioned",
+          "description": "Versioning in Amazon S3 is a means of keeping multiple variants of an object in the same bucket.\n\nYou can use the S3 Versioning feature to preserve, retrieve, and restore every version of every object stored in your buckets.\n\nWith versioning you can recover more easily from both unintended user actions and application failures.\n\nWhen you enable versioning, also keep in mind the potential costs of storing noncurrent versions of objects. To help manage those costs, consider setting up an S3 Lifecycle configuration.\n",
+          "file": "main.tf",
+          "line": 1,
+          "status": "Open",
+          "remediation": "Enable versioning to protect against accidental/malicious removal or modification",
+          "rule_id": "AWS-0090",
+          "fingerprint": "5801c3f9be1fda1a0130935aad0165460b4a8a014e5151f9e738e51444349ae5"
+        },
+        {
+          "scanner": "trivy",
+          "category": "Configuration",
+          "severity": "High",
+          "confidence": null,
+          "title": "S3 Access Block should Ignore Public ACL",
+          "description": "S3 buckets should ignore public ACLs on buckets and any objects they contain. By ignoring rather than blocking, PUT calls with public ACLs will still be applied but the ACL will be ignored.\n",
+          "file": "main.tf",
+          "line": 1,
+          "status": "Open",
+          "remediation": "Enable ignoring the application of public ACLs in PUT calls",
+          "rule_id": "AWS-0091",
+          "fingerprint": "a25604dae3a23b81c1432cf366d143a955c0d4f703da18c65b8cbbae26b0268e"
+        },
+        {
+          "scanner": "trivy",
+          "category": "Configuration",
+          "severity": "High",
+          "confidence": null,
+          "title": "S3 Access block should restrict public bucket to limit access",
+          "description": "S3 buckets should restrict public policies for the bucket. By enabling, the restrict_public_buckets, only the bucket owner and AWS Services can access if it has a public policy.\n",
+          "file": "main.tf",
+          "line": 1,
+          "status": "Open",
+          "remediation": "Limit the access to public buckets to only the owner or AWS Services (eg; CloudFront)",
+          "rule_id": "AWS-0093",
+          "fingerprint": "6e5aa8016e16513dd4c33125f1f30a3266d696585817a46ad00a7b18d4c56f39"
+        },
+        {
+          "scanner": "trivy",
+          "category": "Configuration",
+          "severity": "Low",
+          "confidence": null,
+          "title": "S3 buckets should each define an aws_s3_bucket_public_access_block",
+          "description": "The \"block public access\" settings in S3 override individual policies that apply to a given bucket, meaning that all public access can be controlled in one central types for that bucket. It is therefore good practice to define these settings for each bucket in order to clearly define the public access that can be allowed for it.\n",
+          "file": "main.tf",
+          "line": 1,
+          "status": "Open",
+          "remediation": "Define a aws_s3_bucket_public_access_block for the given bucket to control public access policies",
+          "rule_id": "AWS-0094",
+          "fingerprint": "081b277de8de89e2bd9cdc28433eb4866d481d1bbda3ad506d630d22917f6750"
+        },
+        {
+          "scanner": "trivy",
+          "category": "Configuration",
+          "severity": "High",
+          "confidence": null,
+          "title": "S3 encryption should use Customer Managed Keys",
+          "description": "Encryption using AWS keys provides protection for your S3 buckets. To gain greater control over encryption, such as key rotation, access policies, and auditability, use customer managed keys (CMKs) with SSE-KMS.\nNote that SSE-KMS is not supported for S3 server access logging destination buckets; in such cases, use SSE-S3 instead.\n",
+          "file": "main.tf",
+          "line": 1,
+          "status": "Open",
+          "remediation": "Use SSE-KMS with a customer managed key (CMK)",
+          "rule_id": "AWS-0132",
+          "fingerprint": "333e5aaa3dd32a5925e642ccf47de2a0b50fbd6ffaf6d226706ec7ed98a65663"
+        }
+      ]
+    },
+    {
+      "scanner": "checkov",
+      "status": "completed",
+      "error": null,
+      "findings": [
+        {
+          "scanner": "checkov",
+          "category": "Infrastructure as Code",
+          "severity": "Informational",
+          "confidence": null,
+          "title": "Ensure that S3 bucket has a Public Access block",
+          "description": "Ensure that S3 bucket has a Public Access block. Severity was not supplied by Checkov; SecureScan marks it informational until severity is verified.",
+          "file": "main.tf",
+          "line": 1,
+          "status": "Open",
+          "remediation": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/s3-bucket-should-have-public-access-blocks-defaults-to-false-if-the-public-access-block-is-not-attached",
+          "rule_id": "CKV2_AWS_6",
+          "fingerprint": "92c24bd8f10bf4dda37a9853dd7951820e5a9226bf548b62a5260f6403862130"
+        },
+        {
+          "scanner": "checkov",
+          "category": "Infrastructure as Code",
+          "severity": "Informational",
+          "confidence": null,
+          "title": "Ensure that an S3 bucket has a lifecycle configuration",
+          "description": "Ensure that an S3 bucket has a lifecycle configuration. Severity was not supplied by Checkov; SecureScan marks it informational until severity is verified.",
+          "file": "main.tf",
+          "line": 1,
+          "status": "Open",
+          "remediation": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-2-61",
+          "rule_id": "CKV2_AWS_61",
+          "fingerprint": "d76135208b5735b351b0da05d1963d6d3b58e12ea870871761a3661bedecbbdb"
+        },
+        {
+          "scanner": "checkov",
+          "category": "Infrastructure as Code",
+          "severity": "Informational",
+          "confidence": null,
+          "title": "Ensure that S3 buckets are encrypted with KMS by default",
+          "description": "Ensure that S3 buckets are encrypted with KMS by default. Severity was not supplied by Checkov; SecureScan marks it informational until severity is verified.",
+          "file": "main.tf",
+          "line": 1,
+          "status": "Open",
+          "remediation": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-s3-buckets-are-encrypted-with-kms-by-default",
+          "rule_id": "CKV_AWS_145",
+          "fingerprint": "b7d398c3e82d8c491189e4422a8fe89ebc7710f10bb2615763ef50c8519274bd"
+        },
+        {
+          "scanner": "checkov",
+          "category": "Infrastructure as Code",
+          "severity": "Informational",
+          "confidence": null,
+          "title": "Ensure S3 buckets should have event notifications enabled",
+          "description": "Ensure S3 buckets should have event notifications enabled. Severity was not supplied by Checkov; SecureScan marks it informational until severity is verified.",
+          "file": "main.tf",
+          "line": 1,
+          "status": "Open",
+          "remediation": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-2-62",
+          "rule_id": "CKV2_AWS_62",
+          "fingerprint": "0902fc422960d4e170c121e6c48836744bef17a72fd6c40d6370145523e19836"
+        },
+        {
+          "scanner": "checkov",
+          "category": "Infrastructure as Code",
+          "severity": "Informational",
+          "confidence": null,
+          "title": "Ensure the S3 bucket has access logging enabled",
+          "description": "Ensure the S3 bucket has access logging enabled. Severity was not supplied by Checkov; SecureScan marks it informational until severity is verified.",
+          "file": "main.tf",
+          "line": 1,
+          "status": "Open",
+          "remediation": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/s3-13-enable-logging",
+          "rule_id": "CKV_AWS_18",
+          "fingerprint": "a70b870ea8855aa83a3848104b0654aa49311cd2451cc03c425937a4a7512639"
+        },
+        {
+          "scanner": "checkov",
+          "category": "Infrastructure as Code",
+          "severity": "Informational",
+          "confidence": null,
+          "title": "Ensure all data stored in the S3 bucket have versioning enabled",
+          "description": "Ensure all data stored in the S3 bucket have versioning enabled. Severity was not supplied by Checkov; SecureScan marks it informational until severity is verified.",
+          "file": "main.tf",
+          "line": 1,
+          "status": "Open",
+          "remediation": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/s3-16-enable-versioning",
+          "rule_id": "CKV_AWS_21",
+          "fingerprint": "7bd3b549b78bf4ad7a356dfe880c8a5bf949940e188a9ac11e75dd7b4dc4c67e"
+        },
+        {
+          "scanner": "checkov",
+          "category": "Infrastructure as Code",
+          "severity": "Informational",
+          "confidence": null,
+          "title": "Ensure that S3 bucket has cross-region replication enabled",
+          "description": "Ensure that S3 bucket has cross-region replication enabled. Severity was not supplied by Checkov; SecureScan marks it informational until severity is verified.",
+          "file": "main.tf",
+          "line": 1,
+          "status": "Open",
+          "remediation": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-s3-bucket-has-cross-region-replication-enabled",
+          "rule_id": "CKV_AWS_144",
+          "fingerprint": "63676cd7791507efef5f6a1b460040fced194a5a17caf091f1fe67d069471d69"
+        },
+        {
+          "scanner": "checkov",
+          "category": "Infrastructure as Code",
+          "severity": "Informational",
+          "confidence": null,
+          "title": "Ensure update instructions are not use alone in the Dockerfile",
+          "description": "Ensure update instructions are not use alone in the Dockerfile. Severity was not supplied by Checkov; SecureScan marks it informational until severity is verified.",
+          "file": "Dockerfile",
+          "line": 3,
+          "status": "Open",
+          "remediation": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/docker-policies/docker-policy-index/ensure-update-instructions-are-not-used-alone-in-the-dockerfile",
+          "rule_id": "CKV_DOCKER_5",
+          "fingerprint": "339771483933ee28e0b979ff5393c5b1b5ff2610b6a1ebd52190c8141ff57933"
+        },
+        {
+          "scanner": "checkov",
+          "category": "Infrastructure as Code",
+          "severity": "Informational",
+          "confidence": null,
+          "title": "Ensure the last USER is not root",
+          "description": "Ensure the last USER is not root. Severity was not supplied by Checkov; SecureScan marks it informational until severity is verified.",
+          "file": "Dockerfile",
+          "line": 2,
+          "status": "Open",
+          "remediation": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/docker-policies/docker-policy-index/ensure-the-last-user-is-not-root",
+          "rule_id": "CKV_DOCKER_8",
+          "fingerprint": "99e78364c66aa01078d7fca1a0154e6d5a18aba0eeaac2ee2a95c19584ef04fe"
+        },
+        {
+          "scanner": "checkov",
+          "category": "Infrastructure as Code",
+          "severity": "Informational",
+          "confidence": null,
+          "title": "Ensure that HEALTHCHECK instructions have been added to container images",
+          "description": "Ensure that HEALTHCHECK instructions have been added to container images. Severity was not supplied by Checkov; SecureScan marks it informational until severity is verified.",
+          "file": "Dockerfile",
+          "line": 1,
+          "status": "Open",
+          "remediation": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/docker-policies/docker-policy-index/ensure-that-healthcheck-instructions-have-been-added-to-container-images",
+          "rule_id": "CKV_DOCKER_2",
+          "fingerprint": "c7a044d6beb0ea5828a06965b7bc8f905fb1cfe91e31d88bcf9435bd2ee40197"
+        }
+      ]
+    }
+  ],
+  "message": "Project analysis completed successfully.",
+  "findings_count": 26
+}
+
+FINDINGS: 26
+{"id": "10e2a456-a513-4f2f-b47f-4ec1b7a23303:a51cdcc96978450774bf2bde218d79ffd2f4944d7a7917d0a40e11ebded8202f", "title": "Image user should not be 'root'", "severity": "High", "scanner": "trivy", "rule_id": "DS-0002", "status": "Open", "category": "Configuration"}
+{"id": "10e2a456-a513-4f2f-b47f-4ec1b7a23303:d16c7421728ad3fbc361831c9bb612eaf7b8f3673ecf10121e45d8ac6cde5aa7", "title": "'RUN <package-manager> update' instruction alone", "severity": "High", "scanner": "trivy", "rule_id": "DS-0017", "status": "Open", "category": "Configuration"}
+{"id": "10e2a456-a513-4f2f-b47f-4ec1b7a23303:53974dfd0f08d58eaeb558d47bba90bb04208342b426f20657a2d36ad2a57253", "title": "Uso de eval() pode permitir execução de código não confiável.", "severity": "High", "scanner": "semgrep", "rule_id": "backend.rules.python.security.eval", "status": "Open", "category": "Source Code"}
+{"id": "10e2a456-a513-4f2f-b47f-4ec1b7a23303:8f04c9a9b61a8f07c633c39fbbacc10190f2b1036b1f61ee2bee4f12235bbc15", "title": "S3 Access block should block public ACL", "severity": "High", "scanner": "trivy", "rule_id": "AWS-0086", "status": "Open", "category": "Configuration"}
+{"id": "10e2a456-a513-4f2f-b47f-4ec1b7a23303:dea918e35081879f1f8911b4df0c351e64b6257d8b6aff28bc39425be59a858b", "title": "S3 Access block should block public policy", "severity": "High", "scanner": "trivy", "rule_id": "AWS-0087", "status": "Open", "category": "Configuration"}
+{"id": "10e2a456-a513-4f2f-b47f-4ec1b7a23303:a25604dae3a23b81c1432cf366d143a955c0d4f703da18c65b8cbbae26b0268e", "title": "S3 Access Block should Ignore Public ACL", "severity": "High", "scanner": "trivy", "rule_id": "AWS-0091", "status": "Open", "category": "Configuration"}
+{"id": "10e2a456-a513-4f2f-b47f-4ec1b7a23303:6e5aa8016e16513dd4c33125f1f30a3266d696585817a46ad00a7b18d4c56f39", "title": "S3 Access block should restrict public bucket to limit access", "severity": "High", "scanner": "trivy", "rule_id": "AWS-0093", "status": "Open", "category": "Configuration"}
+{"id": "10e2a456-a513-4f2f-b47f-4ec1b7a23303:333e5aaa3dd32a5925e642ccf47de2a0b50fbd6ffaf6d226706ec7ed98a65663", "title": "S3 encryption should use Customer Managed Keys", "severity": "High", "scanner": "trivy", "rule_id": "AWS-0132", "status": "Open", "category": "Configuration"}
+{"id": "10e2a456-a513-4f2f-b47f-4ec1b7a23303:07557f0d657a0619d47e6573e52a24a8e821adeff47211c69b6d1798648f06e6", "title": "subprocess com shell=True pode permitir command injection.", "severity": "Medium", "scanner": "semgrep", "rule_id": "backend.rules.python.security.subprocess-shell-true", "status": "Open", "category": "Source Code"}
+{"id": "10e2a456-a513-4f2f-b47f-4ec1b7a23303:5801c3f9be1fda1a0130935aad0165460b4a8a014e5151f9e738e51444349ae5", "title": "S3 Data should be versioned", "severity": "Medium", "scanner": "trivy", "rule_id": "AWS-0090", "status": "Open", "category": "Configuration"}
+{"id": "10e2a456-a513-4f2f-b47f-4ec1b7a23303:cf89f4b2ce6dd11a35bb60deb9536cc1fda3b95ece211594b9e8d04d10d5d7a1", "title": "requests: subsequent requests to the same host ignore cert verification", "severity": "Medium", "scanner": "trivy", "rule_id": "CVE-2024-35195", "status": "Open", "category": "Dependency"}
+{"id": "10e2a456-a513-4f2f-b47f-4ec1b7a23303:c461850b6f39bc141a6221017ca79ed79e15666b8594d698112e62d0adb9c118", "title": "requests: Requests vulnerable to .netrc credentials leak via malicious URLs", "severity": "Medium", "scanner": "trivy", "rule_id": "CVE-2024-47081", "status": "Open", "category": "Dependency"}
+{"id": "10e2a456-a513-4f2f-b47f-4ec1b7a23303:84e46fc480701d4d7b6fe238e8ac5b724cdf3d1f645c06b70b9e615f4fa08a1b", "title": "requests: Requests: Security bypass due to predictable temporary file creation", "severity": "Medium", "scanner": "trivy", "rule_id": "CVE-2026-25645", "status": "Open", "category": "Dependency"}
+{"id": "10e2a456-a513-4f2f-b47f-4ec1b7a23303:353d4d8f48537cdcf26744893e32f642302ef41b007e23cb3635380f00e9acf3", "title": "No HEALTHCHECK defined", "severity": "Low", "scanner": "trivy", "rule_id": "DS-0026", "status": "Open", "category": "Configuration"}
+{"id": "10e2a456-a513-4f2f-b47f-4ec1b7a23303:dd079db300c77b2e5af832136456ba8e905aa8fd52b0528727729ae80bbb4246", "title": "S3 Bucket Logging", "severity": "Low", "scanner": "trivy", "rule_id": "AWS-0089", "status": "Open", "category": "Configuration"}
+{"id": "10e2a456-a513-4f2f-b47f-4ec1b7a23303:081b277de8de89e2bd9cdc28433eb4866d481d1bbda3ad506d630d22917f6750", "title": "S3 buckets should each define an aws_s3_bucket_public_access_block", "severity": "Low", "scanner": "trivy", "rule_id": "AWS-0094", "status": "Open", "category": "Configuration"}
+{"id": "10e2a456-a513-4f2f-b47f-4ec1b7a23303:c7a044d6beb0ea5828a06965b7bc8f905fb1cfe91e31d88bcf9435bd2ee40197", "title": "Ensure that HEALTHCHECK instructions have been added to container images", "severity": "Informational", "scanner": "checkov", "rule_id": "CKV_DOCKER_2", "status": "Open", "category": "Infrastructure as Code"}
+{"id": "10e2a456-a513-4f2f-b47f-4ec1b7a23303:99e78364c66aa01078d7fca1a0154e6d5a18aba0eeaac2ee2a95c19584ef04fe", "title": "Ensure the last USER is not root", "severity": "Informational", "scanner": "checkov", "rule_id": "CKV_DOCKER_8", "status": "Open", "category": "Infrastructure as Code"}
+{"id": "10e2a456-a513-4f2f-b47f-4ec1b7a23303:339771483933ee28e0b979ff5393c5b1b5ff2610b6a1ebd52190c8141ff57933", "title": "Ensure update instructions are not use alone in the Dockerfile", "severity": "Informational", "scanner": "checkov", "rule_id": "CKV_DOCKER_5", "status": "Open", "category": "Infrastructure as Code"}
+{"id": "10e2a456-a513-4f2f-b47f-4ec1b7a23303:92c24bd8f10bf4dda37a9853dd7951820e5a9226bf548b62a5260f6403862130", "title": "Ensure that S3 bucket has a Public Access block", "severity": "Informational", "scanner": "checkov", "rule_id": "CKV2_AWS_6", "status": "Open", "category": "Infrastructure as Code"}
+{"id": "10e2a456-a513-4f2f-b47f-4ec1b7a23303:d76135208b5735b351b0da05d1963d6d3b58e12ea870871761a3661bedecbbdb", "title": "Ensure that an S3 bucket has a lifecycle configuration", "severity": "Informational", "scanner": "checkov", "rule_id": "CKV2_AWS_61", "status": "Open", "category": "Infrastructure as Code"}
+{"id": "10e2a456-a513-4f2f-b47f-4ec1b7a23303:b7d398c3e82d8c491189e4422a8fe89ebc7710f10bb2615763ef50c8519274bd", "title": "Ensure that S3 buckets are encrypted with KMS by default", "severity": "Informational", "scanner": "checkov", "rule_id": "CKV_AWS_145", "status": "Open", "category": "Infrastructure as Code"}
+{"id": "10e2a456-a513-4f2f-b47f-4ec1b7a23303:0902fc422960d4e170c121e6c48836744bef17a72fd6c40d6370145523e19836", "title": "Ensure S3 buckets should have event notifications enabled", "severity": "Informational", "scanner": "checkov", "rule_id": "CKV2_AWS_62", "status": "Open", "category": "Infrastructure as Code"}
+{"id": "10e2a456-a513-4f2f-b47f-4ec1b7a23303:a70b870ea8855aa83a3848104b0654aa49311cd2451cc03c425937a4a7512639", "title": "Ensure the S3 bucket has access logging enabled", "severity": "Informational", "scanner": "checkov", "rule_id": "CKV_AWS_18", "status": "Open", "category": "Infrastructure as Code"}
+{"id": "10e2a456-a513-4f2f-b47f-4ec1b7a23303:7bd3b549b78bf4ad7a356dfe880c8a5bf949940e188a9ac11e75dd7b4dc4c67e", "title": "Ensure all data stored in the S3 bucket have versioning enabled", "severity": "Informational", "scanner": "checkov", "rule_id": "CKV_AWS_21", "status": "Open", "category": "Infrastructure as Code"}
+{"id": "10e2a456-a513-4f2f-b47f-4ec1b7a23303:63676cd7791507efef5f6a1b460040fced194a5a17caf091f1fe67d069471d69", "title": "Ensure that S3 bucket has cross-region replication enabled", "severity": "Informational", "scanner": "checkov", "rule_id": "CKV_AWS_144", "status": "Open", "category": "Infrastructure as Code"}
+
