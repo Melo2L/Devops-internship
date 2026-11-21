@@ -237,9 +237,6 @@ These controls reduce the container's writable surface and privileges. They do n
 - Docker Engine
 - Docker Compose v2
 - Access to the project repository
-- A configured `.env` file
-- The external Docker volume `securescan-trivy-cache`
-- The Alertmanager SMTP secret file required by the Compose configuration
 
 ### 1. Clone the repository
 
@@ -257,13 +254,22 @@ At minimum, the Compose configuration requires:
 - `GRAFANA_ADMIN_PASSWORD` — Grafana administrator password.
 - Any additional environment variables required by the local deployment.
 
-The Alertmanager service mounts the SMTP password from:
+The Alertmanager service requires the local file `secrets/smtp_password`.
 
-```text
-secrets/smtp_password
+Create the local configuration:
+
+```bash
+mkdir -p secrets
+cat > .env <<EOF
+GRAFANA_ADMIN_PASSWORD=ChooseAStrongPassword
+SECURESCAN_IMAGE_TAG=latest
+EOF
+printf "smtp-not-configured\\n" > secrets/smtp_password
 ```
 
-Provide the required secret locally. Do not commit `.env`, SMTP credentials, tokens or passwords to Git.
+Replace `ChooseAStrongPassword` with your own strong password.
+
+The SMTP value is only a placeholder that allows the service configuration to start. Real email notifications require valid SMTP credentials. Never commit `.env` or files under `secrets/` to Git.
 
 ### 3. Create the external Trivy cache volume
 
@@ -273,10 +279,11 @@ docker volume create securescan-trivy-cache
 
 This command creates the external volume expected by Compose. If it already exists, preserve it.
 
-### 4. Build and start the services
+### 4. Pull and start the services
 
 ```bash
-docker compose up --build -d
+docker compose pull
+docker compose up -d --no-build
 ```
 
 ### 5. Check service status
@@ -928,9 +935,6 @@ Estas medidas reduzem a superfície de escrita e os privilégios dos containers.
 - Docker Engine
 - Docker Compose v2
 - Acesso ao repositório do projeto
-- Ficheiro `.env` configurado
-- Volume Docker externo `securescan-trivy-cache`
-- Ficheiro secreto SMTP do Alertmanager exigido pela configuração Compose
 
 ### 1. Clonar o repositório
 
@@ -948,13 +952,22 @@ No mínimo, a configuração Compose exige:
 - `GRAFANA_ADMIN_PASSWORD` — palavra-passe do administrador do Grafana.
 - Quaisquer outras variáveis necessárias para a instalação local.
 
-O serviço Alertmanager utiliza o ficheiro:
+O serviço Alertmanager requer o ficheiro local `secrets/smtp_password`.
 
-```text
-secrets/smtp_password
+Crie a configuração local:
+
+```bash
+mkdir -p secrets
+cat > .env <<EOF
+GRAFANA_ADMIN_PASSWORD=EscolhaUmaPasswordForte
+SECURESCAN_IMAGE_TAG=latest
+EOF
+printf "%s\\n" "smtp-nao-configurado" > secrets/smtp_password
 ```
 
-Disponibilize o segredo necessário localmente. Não coloque `.env`, credenciais SMTP, tokens ou palavras-passe no Git.
+Substitua `EscolhaUmaPasswordForte` por uma palavra-passe forte à sua escolha.
+
+O valor SMTP é apenas um exemplo. O envio real de emails exige credenciais SMTP válidas. Nunca adicione `.env` nem ficheiros da pasta `secrets/` ao Git.
 
 ### 3. Criar o volume externo da cache Trivy
 
@@ -964,10 +977,11 @@ docker volume create securescan-trivy-cache
 
 Este comando cria o volume externo esperado pelo Compose. Se já existir, preserve-o.
 
-### 4. Construir e iniciar os serviços
+### 4. Descarregar as imagens e iniciar os serviços
 
 ```bash
-docker compose up --build -d
+docker compose pull
+docker compose up -d --no-build
 ```
 
 ### 5. Verificar o estado dos serviços
@@ -1619,9 +1633,6 @@ Estas medidas reducen la superficie de escritura y los privilegios de los conten
 - Docker Engine
 - Docker Compose v2
 - Acceso al repositorio del proyecto
-- Archivo `.env` configurado
-- Volumen Docker externo `securescan-trivy-cache`
-- Archivo secreto SMTP de Alertmanager requerido por la configuración Compose
 
 ### 1. Clonar el repositorio
 
@@ -1639,13 +1650,22 @@ Como mínimo, la configuración Compose requiere:
 - `GRAFANA_ADMIN_PASSWORD` — contraseña del administrador de Grafana.
 - Cualquier otra variable de entorno necesaria para la instalación local.
 
-El servicio Alertmanager monta el archivo:
+El servicio Alertmanager requiere el archivo local `secrets/smtp_password`.
 
-```text
-secrets/smtp_password
+Crea la configuración local:
+
+```bash
+mkdir -p secrets
+cat > .env <<EOF
+GRAFANA_ADMIN_PASSWORD=ElijaUnaContrasenaSegura
+SECURESCAN_IMAGE_TAG=latest
+EOF
+printf "%s\\n" "smtp-no-configurado" > secrets/smtp_password
 ```
 
-Proporciona el secreto necesario localmente. No incluyas `.env`, credenciales SMTP, tokens ni contraseñas en Git.
+Sustituye `ElijaUnaContrasenaSegura` por una contraseña segura de tu elección.
+
+El valor SMTP es solo un ejemplo. El envío real de correos requiere credenciales SMTP válidas. Nunca añadas `.env` ni archivos de la carpeta `secrets/` a Git.
 
 ### 3. Crear el volumen externo de caché Trivy
 
@@ -1655,10 +1675,11 @@ docker volume create securescan-trivy-cache
 
 Este comando crea el volumen externo esperado por Compose. Si ya existe, consérvalo.
 
-### 4. Construir e iniciar los servicios
+### 4. Descargar las imágenes e iniciar los servicios
 
 ```bash
-docker compose up --build -d
+docker compose pull
+docker compose up -d --no-build
 ```
 
 ### 5. Comprobar el estado de los servicios
